@@ -42,6 +42,17 @@ export class AuthController {
     }
   };
 
+  logout = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const token = req.headers.authorization?.split(' ')[1] || '';
+      await this.service.logout(userId, token);
+      successResponse(res, null, 'Logout successful');
+    } catch (error) {
+      next(error);
+    }
+  };
+
   reportError = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const data: ErrorReportRequest = req.body;

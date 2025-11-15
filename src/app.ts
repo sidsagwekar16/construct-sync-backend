@@ -12,6 +12,7 @@ import authRoutes from './modules/auth/auth.routes';
 import teamsRoutes from './modules/teams/teams.routes';
 import sitesRoutes from './modules/sites/sites.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
+import tasksRoutes from './modules/tasks/tasks.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -76,6 +77,7 @@ export const createApp = (): Application => {
   app.use('/api/teams', teamsRoutes);
   app.use('/api/sites', sitesRoutes);
   app.use('/api/jobs', jobsRoutes);
+  app.use('/api/tasks', tasksRoutes);
 
   // 404 handler
   app.use(notFoundHandler);

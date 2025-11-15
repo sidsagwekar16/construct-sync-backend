@@ -116,6 +116,13 @@ export class AuthService {
     });
   }
 
+  async logout(userId: string, accessToken: string): Promise<void> {
+    // Remove the session from database
+    await this.repository.deleteSession(accessToken);
+    
+    logger.info(`User logged out: ${userId}`);
+  }
+
   async verifyToken(token: string): Promise<JWTPayload> {
     try {
       const decoded = jwt.verify(token, env.jwt.secret) as JWTPayload;
