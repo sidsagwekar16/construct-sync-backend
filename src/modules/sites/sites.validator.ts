@@ -26,6 +26,12 @@ export const createSiteSchema = z.object({
     .min(-180, 'Longitude must be between -180 and 180')
     .max(180, 'Longitude must be between -180 and 180')
     .optional(),
+  radius: z
+    .number()
+    .min(50, 'Radius must be at least 50 meters')
+    .max(1000, 'Radius must not exceed 1000 meters')
+    .optional()
+    .nullable(),
   status: z.nativeEnum(SiteStatus).optional().default(SiteStatus.PLANNING),
 });
 
@@ -53,6 +59,12 @@ export const updateSiteSchema = z.object({
     .number()
     .min(-180, 'Longitude must be between -180 and 180')
     .max(180, 'Longitude must be between -180 and 180')
+    .optional()
+    .nullable(),
+  radius: z
+    .number()
+    .min(50, 'Radius must be at least 50 meters')
+    .max(1000, 'Radius must not exceed 1000 meters')
     .optional()
     .nullable(),
   status: z.nativeEnum(SiteStatus).optional(),

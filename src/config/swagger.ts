@@ -247,12 +247,30 @@ const options: swaggerJsdoc.Options = {
         name: 'Health',
         description: 'Health check endpoints',
       },
+      {
+        name: 'Subcontractors',
+        description: 'Subcontractor company management endpoints',
+      },
+      {
+        name: 'Subcontractor Contracts',
+        description: 'Subcontractor contract management endpoints',
+      },
+      {
+        name: 'Contract Payments',
+        description: 'Contract payment tracking endpoints',
+      },
     ],
   },
   apis: ['./src/modules/*/*.routes.ts', './src/app.ts'],
 };
 
 export const swaggerSpec = swaggerJsdoc(options);
+
+
+
+
+
+
 
 
 

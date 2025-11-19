@@ -31,8 +31,8 @@ export class TeamsRepository {
 
     query += ` ORDER BY created_at DESC`;
 
-    // Get total count
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+    // Get total count (remove ORDER BY for count query)
+    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)').replace(/ ORDER BY created_at DESC/, '');
     const countResult = await db.query<{ count: string }>(countQuery, params);
     const total = parseInt(countResult.rows[0].count, 10);
 

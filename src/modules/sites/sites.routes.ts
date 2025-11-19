@@ -146,6 +146,12 @@ router.get('/:id', sitesController.getSiteById);
  *                 minimum: -180
  *                 maximum: 180
  *                 example: -74.0060
+ *               radius:
+ *                 type: number
+ *                 minimum: 50
+ *                 maximum: 1000
+ *                 example: 100
+ *                 description: Geofence radius in meters (default 100m)
  *               status:
  *                 type: string
  *                 enum: [planning, active, on_hold, completed, archived]
@@ -205,6 +211,12 @@ router.post('/', validateRequest(createSiteSchema), sitesController.createSite);
  *                 minimum: -180
  *                 maximum: 180
  *                 example: -73.9442
+ *               radius:
+ *                 type: number
+ *                 minimum: 50
+ *                 maximum: 1000
+ *                 example: 150
+ *                 description: Geofence radius in meters
  *               status:
  *                 type: string
  *                 enum: [planning, active, on_hold, completed, archived]

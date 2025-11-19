@@ -3,8 +3,13 @@
 import { db } from '../../db/connection';
 import { User, Session, RefreshToken } from './auth.types';
 import { UserRole } from '../../types/enums';
+import { createHash } from 'crypto';
 
 export class AuthRepository {
+  private hashToken(token: string): string {
+    return createHash('sha256').update(token).digest('hex');
+  }
+
   async findUserByEmail(email: string): Promise<User | null> {
     const query = `
       SELECT * FROM users 
@@ -63,42 +68,62 @@ export class AuthRepository {
   }
 
   async createSession(userId: string, token: string, expiresAt: Date): Promise<Session> {
+    const hashed = this.hashToken(token);
     const query = `
       INSERT INTO sessions (user_id, token, expires_at)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
-    const result = await db.query<Session>(query, [userId, token, expiresAt]);
+    const result = await db.query<Session>(query, [userId, hashed, expiresAt]);
     return result.rows[0];
   }
 
   async createRefreshToken(userId: string, token: string, expiresAt: Date): Promise<RefreshToken> {
+    const hashed = this.hashToken(token);
     const query = `
       INSERT INTO refresh_tokens (user_id, token, expires_at)
       VALUES ($1, $2, $3)
       RETURNING *
     `;
-    const result = await db.query<RefreshToken>(query, [userId, token, expiresAt]);
+    const result = await db.query<RefreshToken>(query, [userId, hashed, expiresAt]);
     return result.rows[0];
   }
 
   async findSessionByToken(token: string): Promise<Session | null> {
+    const hashed = this.hashToken(token);
     const query = `
       SELECT * FROM sessions 
       WHERE token = $1 AND expires_at > NOW()
     `;
-    const result = await db.query<Session>(query, [token]);
+    const result = await db.query<Session>(query, [hashed]);
     return result.rows[0] || null;
   }
 
   async deleteSession(token: string): Promise<void> {
+    const hashed = this.hashToken(token);
     const query = `DELETE FROM sessions WHERE token = $1`;
-    await db.query(query, [token]);
+    await db.query(query, [hashed]);
   }
 
   async deleteUserSessions(userId: string): Promise<void> {
     const query = `DELETE FROM sessions WHERE user_id = $1`;
     await db.query(query, [userId]);
+  }
+
+  async findRefreshTokenByToken(token: string): Promise<RefreshToken | null> {
+    const hashed = this.hashToken(token);
+    const query = `
+      SELECT * FROM refresh_tokens 
+      WHERE token = $1 AND expires_at > NOW()
+    `;
+    const result = await db.query<RefreshToken>(query, [hashed]);
+    return result.rows[0] || null;
+  }
+
+  async deleteRefreshToken(token: string): Promise<void> {
+    const hashed = this.hashToken(token);
+    const query = `DELETE FROM refresh_tokens WHERE token = $1`;
+    await db.query(query, [hashed]);
   }
 
   async logError(

@@ -7,6 +7,8 @@ export const rateLimiter = rateLimit({
   message: 'Too many requests from this IP, please try again later.',
   standardHeaders: true,
   legacyHeaders: false,
+  // Skip rate limiting in development
+  skip: (req) => env.server.nodeEnv === 'development',
 });
 
 export const authRateLimiter = rateLimit({
@@ -14,4 +16,6 @@ export const authRateLimiter = rateLimit({
   max: 5, // 5 requests per window
   message: 'Too many login attempts, please try again later.',
   skipSuccessfulRequests: true,
+  // More lenient in development
+  skip: (req) => env.server.nodeEnv === 'development',
 });

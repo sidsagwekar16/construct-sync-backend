@@ -8,7 +8,8 @@ import {
   createJobSchema,
   updateJobSchema,
   listJobsQuerySchema,
-  jobIdSchema,
+  assignWorkersSchema,
+  assignManagersSchema,
 } from './jobs.validator';
 
 const router = Router();
@@ -93,7 +94,7 @@ router.get('/by-site/:siteId', jobsController.getJobsBySite);
  *         name: search
  *         schema:
  *           type: string
- *         description: Search term for job name, description, or job number
+ *         description: Search term for job name, description, job number, or job type
  *       - in: query
  *         name: status
  *         schema:
@@ -101,11 +102,28 @@ router.get('/by-site/:siteId', jobsController.getJobsBySite);
  *           enum: [draft, planned, in_progress, on_hold, completed, cancelled, archived]
  *         description: Filter by job status
  *       - in: query
+ *         name: priority
+ *         schema:
+ *           type: string
+ *           enum: [low, medium, high, urgent, critical]
+ *         description: Filter by priority level
+ *       - in: query
  *         name: siteId
  *         schema:
  *           type: string
  *           format: uuid
  *         description: Filter by site ID
+ *       - in: query
+ *         name: assignedTo
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter by assigned user ID
+ *       - in: query
+ *         name: jobType
+ *         schema:
+ *           type: string
+ *         description: Filter by job type
  *     responses:
  *       200:
  *         description: List of jobs retrieved successfully
@@ -121,7 +139,7 @@ router.get('/', jobsController.listJobs);
  *     tags:
  *       - Jobs
  *     summary: Get job by ID
- *     description: Get details of a specific job
+ *     description: Get details of a specific job with populated relationships
  *     security:
  *       - bearerAuth: []
  *     parameters:
@@ -174,6 +192,10 @@ router.get('/:id', jobsController.getJobById);
  *                 type: string
  *                 maxLength: 100
  *                 example: JOB-2024-001
+ *               jobType:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Commercial Construction
  *               siteId:
  *                 type: string
  *                 format: uuid
@@ -183,14 +205,41 @@ router.get('/:id', jobsController.getJobById);
  *                 enum: [draft, planned, in_progress, on_hold, completed, cancelled, archived]
  *                 default: draft
  *                 example: draft
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high, urgent, critical]
+ *                 example: medium
  *               startDate:
  *                 type: string
- *                 format: date
- *                 example: 2024-01-15
+ *                 format: date-time
+ *                 example: 2024-01-15T08:00:00Z
  *               endDate:
  *                 type: string
- *                 format: date
- *                 example: 2024-12-31
+ *                 format: date-time
+ *                 example: 2024-12-31T17:00:00Z
+ *               completedDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2024-12-31T17:00:00Z
+ *               assignedTo:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Job manager/supervisor user ID
+ *                 example: 123e4567-e89b-12d3-a456-426614174001
+ *               workerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of worker user IDs to assign to the job (optional - jobs can be created without workers)
+ *                 example: ["123e4567-e89b-12d3-a456-426614174002", "123e4567-e89b-12d3-a456-426614174003"]
+ *               managerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of project manager user IDs to assign to the job
+ *                 example: ["123e4567-e89b-12d3-a456-426614174004"]
  *     responses:
  *       201:
  *         description: Job created successfully
@@ -239,6 +288,10 @@ router.post('/', validateRequest(createJobSchema), jobsController.createJob);
  *                 type: string
  *                 maxLength: 100
  *                 example: JOB-2024-002
+ *               jobType:
+ *                 type: string
+ *                 maxLength: 100
+ *                 example: Residential Construction
  *               siteId:
  *                 type: string
  *                 format: uuid
@@ -247,14 +300,41 @@ router.post('/', validateRequest(createJobSchema), jobsController.createJob);
  *                 type: string
  *                 enum: [draft, planned, in_progress, on_hold, completed, cancelled, archived]
  *                 example: in_progress
+ *               priority:
+ *                 type: string
+ *                 enum: [low, medium, high, urgent, critical]
+ *                 example: high
  *               startDate:
  *                 type: string
- *                 format: date
- *                 example: 2024-02-01
+ *                 format: date-time
+ *                 example: 2024-02-01T08:00:00Z
  *               endDate:
  *                 type: string
- *                 format: date
- *                 example: 2025-01-31
+ *                 format: date-time
+ *                 example: 2025-01-31T17:00:00Z
+ *               completedDate:
+ *                 type: string
+ *                 format: date-time
+ *                 example: 2025-01-31T17:00:00Z
+ *               assignedTo:
+ *                 type: string
+ *                 format: uuid
+ *                 description: Job manager/supervisor user ID
+ *                 example: 123e4567-e89b-12d3-a456-426614174001
+ *               workerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of worker user IDs (replaces existing workers - can be empty to remove all workers)
+ *                 example: ["123e4567-e89b-12d3-a456-426614174002"]
+ *               managerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 description: Array of project manager user IDs (replaces existing managers)
+ *                 example: ["123e4567-e89b-12d3-a456-426614174004"]
  *     responses:
  *       200:
  *         description: Job updated successfully
@@ -294,5 +374,159 @@ router.patch('/:id', validateRequest(updateJobSchema), jobsController.updateJob)
  *         description: Unauthorized
  */
 router.delete('/:id', jobsController.deleteJob);
+
+/**
+ * @swagger
+ * /api/jobs/{id}/workers:
+ *   post:
+ *     tags:
+ *       - Jobs
+ *     summary: Assign workers to a job
+ *     description: Assign workers to an existing job (replaces existing worker assignments)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - workerIds
+ *             properties:
+ *               workerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 minItems: 1
+ *                 description: Array of worker user IDs to assign to the job
+ *                 example: ["123e4567-e89b-12d3-a456-426614174002", "123e4567-e89b-12d3-a456-426614174003"]
+ *     responses:
+ *       200:
+ *         description: Workers assigned successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/:id/workers', validateRequest(assignWorkersSchema), jobsController.assignWorkers);
+
+/**
+ * @swagger
+ * /api/jobs/{id}/managers:
+ *   post:
+ *     tags:
+ *       - Jobs
+ *     summary: Assign managers to a job
+ *     description: Assign managers to an existing job (replaces existing manager assignments)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - managerIds
+ *             properties:
+ *               managerIds:
+ *                 type: array
+ *                 items:
+ *                   type: string
+ *                   format: uuid
+ *                 minItems: 1
+ *                 description: Array of manager user IDs to assign to the job
+ *                 example: ["123e4567-e89b-12d3-a456-426614174004"]
+ *     responses:
+ *       200:
+ *         description: Managers assigned successfully
+ *       400:
+ *         description: Validation error
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/:id/managers', validateRequest(assignManagersSchema), jobsController.assignManagers);
+
+/**
+ * @swagger
+ * /api/jobs/{id}/archive:
+ *   patch:
+ *     tags:
+ *       - Jobs
+ *     summary: Archive a job
+ *     description: Change job status to archived
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     responses:
+ *       200:
+ *         description: Job archived successfully
+ *       400:
+ *         description: Job is already archived
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/:id/archive', jobsController.archiveJob);
+
+/**
+ * @swagger
+ * /api/jobs/{id}/unarchive:
+ *   patch:
+ *     tags:
+ *       - Jobs
+ *     summary: Unarchive a job
+ *     description: Change archived job status back to draft
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     responses:
+ *       200:
+ *         description: Job unarchived successfully
+ *       400:
+ *         description: Job is not archived
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.patch('/:id/unarchive', jobsController.unarchiveJob);
 
 export default router;

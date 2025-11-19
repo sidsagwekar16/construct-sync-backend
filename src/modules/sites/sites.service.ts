@@ -83,6 +83,7 @@ export class SitesService {
       data.address,
       data.latitude,
       data.longitude,
+      data.radius || 100,
       data.status
     );
 
@@ -191,6 +192,7 @@ export class SitesService {
       address: site.address,
       latitude: site.latitude,
       longitude: site.longitude,
+      radius: site.radius,
       status: site.status,
       createdAt: site.created_at,
       updatedAt: site.updated_at,

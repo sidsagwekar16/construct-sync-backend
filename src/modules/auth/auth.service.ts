@@ -180,4 +180,59 @@ export class AuthService {
       createdAt: user.created_at,
     };
   }
+
+  async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {
+    try {
+      // Verify JWT signature and decode payload
+      const decoded = jwt.verify(refreshToken, env.jwt.secret) as JWTPayload;
+
+      // Ensure the refresh token exists and is not expired in DB
+      const refreshRecord = await this.repository.findRefreshTokenByToken(refreshToken);
+      if (!refreshRecord) {
+        throw new UnauthorizedError('Invalid or expired refresh token');
+      }
+
+      const payload: JWTPayload = {
+        userId: decoded.userId,
+        email: decoded.email,
+        role: decoded.role,
+        companyId: decoded.companyId,
+      };
+
+      // Generate new access and refresh tokens
+      const newAccessToken = jwt.sign(payload, env.jwt.secret, {
+        expiresIn: env.jwt.expiresIn,
+      } as jwt.SignOptions);
+
+      const newRefreshToken = jwt.sign(payload, env.jwt.secret, {
+        expiresIn: env.jwt.refreshExpiresIn,
+      } as jwt.SignOptions);
+
+      // Calculate expirations (keep in sync with generateAuthResponse)
+      const accessTokenExpiry = new Date();
+      accessTokenExpiry.setDate(accessTokenExpiry.getDate() + 7); // 7 days
+
+      const refreshTokenExpiry = new Date();
+      refreshTokenExpiry.setDate(refreshTokenExpiry.getDate() + 30); // 30 days
+
+      // Store new session and refresh token (tokens are hashed inside repository)
+      await this.repository.createSession(refreshRecord.user_id, newAccessToken, accessTokenExpiry);
+      await this.repository.createRefreshToken(refreshRecord.user_id, newRefreshToken, refreshTokenExpiry);
+
+      // Light rotation: delete old refresh token
+      await this.repository.deleteRefreshToken(refreshToken);
+
+      logger.info(`Tokens refreshed for user: ${decoded.email}`);
+
+      return {
+        accessToken: newAccessToken,
+        refreshToken: newRefreshToken,
+      };
+    } catch (error) {
+      if (error instanceof jwt.JsonWebTokenError || error instanceof jwt.TokenExpiredError) {
+        throw new UnauthorizedError('Invalid or expired refresh token');
+      }
+      throw error;
+    }
+  }
 }

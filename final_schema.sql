@@ -361,6 +361,7 @@ CREATE TABLE sites (
   address TEXT,
   latitude DECIMAL(10, 8),
   longitude DECIMAL(11, 8),
+  radius DECIMAL(10, 2) DEFAULT 100.00,
   status site_status,
   deleted_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
@@ -410,12 +411,35 @@ CREATE TABLE jobs (
   job_number VARCHAR(100),
   name VARCHAR(255) NOT NULL,
   description TEXT,
+  job_type VARCHAR(100),
   status job_status,
-  start_date DATE,
-  end_date DATE,
+  priority priority_level,
+  start_date TIMESTAMP,
+  end_date TIMESTAMP,
+  completed_date TIMESTAMP,
+  assigned_to UUID REFERENCES users(id) ON DELETE SET NULL,
+  created_by UUID NOT NULL REFERENCES users(id) ON DELETE SET NULL,
   deleted_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Job Workers (Many-to-Many relationship between jobs and workers)
+CREATE TABLE job_workers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(job_id, user_id)
+);
+
+-- Job Managers (Many-to-Many relationship between jobs and project managers)
+CREATE TABLE job_managers (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
+  user_id UUID NOT NULL REFERENCES users(id) ON DELETE CASCADE,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  UNIQUE(job_id, user_id)
 );
 
 -- Job Blocks
@@ -610,17 +634,41 @@ CREATE TABLE stock_adjustments (
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Subcontractors (External Companies)
+CREATE TABLE subcontractors (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  name VARCHAR(255) NOT NULL,
+  business_name VARCHAR(255),
+  abn VARCHAR(50),
+  email VARCHAR(255),
+  phone VARCHAR(50),
+  address TEXT,
+  trade VARCHAR(100),
+  description TEXT,
+  is_active BOOLEAN DEFAULT true,
+  deleted_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Subcontractor Contracts
 CREATE TABLE subcontractor_contracts (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
-  job_id UUID NOT NULL REFERENCES jobs(id) ON DELETE CASCADE,
-  subcontractor_name VARCHAR(255) NOT NULL,
-  contact_email VARCHAR(255),
-  contact_phone VARCHAR(50),
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  subcontractor_id UUID NOT NULL REFERENCES subcontractors(id) ON DELETE CASCADE,
+  job_id UUID REFERENCES jobs(id) ON DELETE SET NULL,
+  contract_number VARCHAR(100),
+  title VARCHAR(255) NOT NULL,
+  description TEXT,
   contract_value DECIMAL(15, 2),
   start_date DATE,
   end_date DATE,
-  status contract_status,
+  completion_date DATE,
+  status contract_status DEFAULT 'draft',
+  progress_percentage DECIMAL(5, 2) DEFAULT 0,
+  payment_terms TEXT,
+  notes TEXT,
   deleted_at TIMESTAMP NULL,
   created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
@@ -836,6 +884,51 @@ CREATE TABLE budget_line_items (
   updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
 );
 
+-- Site Budgets
+CREATE TABLE site_budgets (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_id UUID UNIQUE NOT NULL REFERENCES sites(id) ON DELETE CASCADE,
+  company_id UUID NOT NULL REFERENCES companies(id) ON DELETE CASCADE,
+  total_budget DECIMAL(15, 2) NOT NULL DEFAULT 0,
+  allocated_budget DECIMAL(15, 2) DEFAULT 0,
+  spent_budget DECIMAL(15, 2) DEFAULT 0,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Site Budget Categories
+CREATE TABLE site_budget_categories (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_budget_id UUID NOT NULL REFERENCES site_budgets(id) ON DELETE CASCADE,
+  category_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  allocated_amount DECIMAL(15, 2) NOT NULL DEFAULT 0,
+  spent_amount DECIMAL(15, 2) DEFAULT 0,
+  is_custom BOOLEAN DEFAULT false,
+  deleted_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
+-- Site Budget Expenses
+CREATE TABLE site_budget_expenses (
+  id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
+  site_budget_id UUID NOT NULL REFERENCES site_budgets(id) ON DELETE CASCADE,
+  category_id UUID REFERENCES site_budget_categories(id) ON DELETE SET NULL,
+  expense_name VARCHAR(255) NOT NULL,
+  description TEXT,
+  amount DECIMAL(15, 2) NOT NULL,
+  expense_date DATE NOT NULL,
+  vendor VARCHAR(255),
+  receipt_url TEXT,
+  created_by UUID REFERENCES users(id) ON DELETE SET NULL,
+  deleted_at TIMESTAMP NULL,
+  created_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP,
+  updated_at TIMESTAMP DEFAULT CURRENT_TIMESTAMP
+);
+
 -- Cost Transactions
 CREATE TABLE cost_transactions (
   id UUID PRIMARY KEY DEFAULT gen_random_uuid(),
@@ -920,6 +1013,12 @@ CREATE INDEX idx_site_zones_site_id ON site_zones(site_id);
 
 -- Job Relationships
 CREATE INDEX idx_jobs_site_id ON jobs(site_id);
+CREATE INDEX idx_jobs_assigned_to ON jobs(assigned_to);
+CREATE INDEX idx_jobs_created_by ON jobs(created_by);
+CREATE INDEX idx_job_workers_job_id ON job_workers(job_id);
+CREATE INDEX idx_job_workers_user_id ON job_workers(user_id);
+CREATE INDEX idx_job_managers_job_id ON job_managers(job_id);
+CREATE INDEX idx_job_managers_user_id ON job_managers(user_id);
 CREATE INDEX idx_job_blocks_job_id ON job_blocks(job_id);
 CREATE INDEX idx_job_units_job_id ON job_units(job_id);
 CREATE INDEX idx_job_units_job_block_id ON job_units(job_block_id);
@@ -953,8 +1052,17 @@ CREATE INDEX idx_stock_adjustments_material_id ON stock_adjustments(material_id)
 CREATE INDEX idx_stock_adjustments_adjusted_by ON stock_adjustments(adjusted_by);
 
 -- Subcontractor Relationships
+CREATE INDEX idx_subcontractors_company_id ON subcontractors(company_id);
+CREATE INDEX idx_subcontractors_name ON subcontractors(name);
+CREATE INDEX idx_subcontractors_trade ON subcontractors(trade);
+CREATE INDEX idx_subcontractors_is_active ON subcontractors(is_active);
+CREATE INDEX idx_subcontractor_contracts_company_id ON subcontractor_contracts(company_id);
+CREATE INDEX idx_subcontractor_contracts_subcontractor_id ON subcontractor_contracts(subcontractor_id);
 CREATE INDEX idx_subcontractor_contracts_job_id ON subcontractor_contracts(job_id);
+CREATE INDEX idx_subcontractor_contracts_status ON subcontractor_contracts(status);
+CREATE INDEX idx_subcontractor_contracts_contract_number ON subcontractor_contracts(contract_number);
 CREATE INDEX idx_contract_payments_contract_id ON contract_payments(contract_id);
+CREATE INDEX idx_contract_payments_payment_date ON contract_payments(payment_date);
 
 -- Safety Module Relationships
 CREATE INDEX idx_safety_incidents_job_id ON safety_incidents(job_id);
@@ -989,6 +1097,12 @@ CREATE INDEX idx_budget_line_items_job_budget_id ON budget_line_items(job_budget
 CREATE INDEX idx_cost_transactions_job_id ON cost_transactions(job_id);
 CREATE INDEX idx_cost_transactions_budget_line_item_id ON cost_transactions(budget_line_item_id);
 CREATE INDEX idx_job_revenue_job_id ON job_revenue(job_id);
+CREATE INDEX idx_site_budgets_site_id ON site_budgets(site_id);
+CREATE INDEX idx_site_budgets_company_id ON site_budgets(company_id);
+CREATE INDEX idx_site_budget_categories_site_budget_id ON site_budget_categories(site_budget_id);
+CREATE INDEX idx_site_budget_expenses_site_budget_id ON site_budget_expenses(site_budget_id);
+CREATE INDEX idx_site_budget_expenses_category_id ON site_budget_expenses(category_id);
+CREATE INDEX idx_site_budget_expenses_expense_date ON site_budget_expenses(expense_date);
 
 -- Audit & System
 CREATE INDEX idx_audit_logs_entity ON audit_logs(entity_type, entity_id);
@@ -1003,6 +1117,8 @@ CREATE INDEX idx_sessions_expires_at ON sessions(expires_at);
 CREATE INDEX idx_refresh_tokens_token ON refresh_tokens(token);
 CREATE INDEX idx_refresh_tokens_expires_at ON refresh_tokens(expires_at);
 CREATE INDEX idx_jobs_status ON jobs(status);
+CREATE INDEX idx_jobs_priority ON jobs(priority);
+CREATE INDEX idx_jobs_job_type ON jobs(job_type);
 CREATE INDEX idx_jobs_job_number ON jobs(job_number);
 CREATE INDEX idx_job_tasks_status ON job_tasks(status);
 CREATE INDEX idx_job_tasks_priority ON job_tasks(priority);
@@ -1037,6 +1153,7 @@ CREATE INDEX idx_progress_milestones_deleted_at ON progress_milestones(deleted_a
 CREATE INDEX idx_materials_deleted_at ON materials(deleted_at);
 CREATE INDEX idx_material_requests_deleted_at ON material_requests(deleted_at);
 CREATE INDEX idx_material_usage_deleted_at ON material_usage(deleted_at);
+CREATE INDEX idx_subcontractors_deleted_at ON subcontractors(deleted_at);
 CREATE INDEX idx_subcontractor_contracts_deleted_at ON subcontractor_contracts(deleted_at);
 CREATE INDEX idx_safety_incidents_deleted_at ON safety_incidents(deleted_at);
 CREATE INDEX idx_near_miss_reports_deleted_at ON near_miss_reports(deleted_at);
@@ -1046,6 +1163,9 @@ CREATE INDEX idx_document_folders_deleted_at ON document_folders(deleted_at);
 CREATE INDEX idx_construction_documents_deleted_at ON construction_documents(deleted_at);
 CREATE INDEX idx_job_budgets_deleted_at ON job_budgets(deleted_at);
 CREATE INDEX idx_budget_line_items_deleted_at ON budget_line_items(deleted_at);
+CREATE INDEX idx_site_budgets_deleted_at ON site_budgets(deleted_at);
+CREATE INDEX idx_site_budget_categories_deleted_at ON site_budget_categories(deleted_at);
+CREATE INDEX idx_site_budget_expenses_deleted_at ON site_budget_expenses(deleted_at);
 
 -- ============================================
 -- SCHEMA COMPLETE
@@ -1053,9 +1173,9 @@ CREATE INDEX idx_budget_line_items_deleted_at ON budget_line_items(deleted_at);
 -- 
 -- Summary:
 -- - 26 ENUM types
--- - 44 tables
--- - 104 indexes (76 relationship + 28 soft delete)
--- - Soft delete enabled on 28 business tables
+-- - 45 tables (added subcontractors)
+-- - 115 indexes (85 relationship + 30 soft delete)
+-- - Soft delete enabled on 29 business tables
 -- - Full referential integrity with foreign keys
 -- 
 -- To deploy:

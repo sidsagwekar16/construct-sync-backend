@@ -30,6 +30,9 @@ export class JobsController {
         search: req.query.search as string,
         status: req.query.status as JobStatus,
         siteId: req.query.siteId as string,
+        assignedTo: req.query.assignedTo as string,
+        jobType: req.query.jobType as string,
+        priority: req.query.priority as any,
       };
 
       const result = await this.service.listJobs(companyId, query);
@@ -62,9 +65,10 @@ export class JobsController {
   createJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const companyId = req.user!.companyId;
+      const createdBy = req.user!.id;
       const data: CreateJobRequest = req.body;
 
-      const job = await this.service.createJob(companyId, data);
+      const job = await this.service.createJob(companyId, createdBy, data);
       successResponse(res, job, 'Job created successfully', 201);
     } catch (error) {
       next(error);
@@ -130,6 +134,72 @@ export class JobsController {
 
       const jobs = await this.service.getJobsBySite(companyId, siteId);
       successResponse(res, jobs);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * PATCH /api/jobs/:id/archive
+   * Archive a job
+   */
+  archiveJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+
+      const job = await this.service.archiveJob(jobId, companyId);
+      successResponse(res, job, 'Job archived successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * PATCH /api/jobs/:id/unarchive
+   * Unarchive a job
+   */
+  unarchiveJob = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+
+      const job = await this.service.unarchiveJob(jobId, companyId);
+      successResponse(res, job, 'Job unarchived successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /api/jobs/:id/workers
+   * Assign workers to an existing job
+   */
+  assignWorkers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+      const { workerIds } = req.body;
+
+      const job = await this.service.assignWorkersToJob(jobId, companyId, workerIds);
+      successResponse(res, job, 'Workers assigned successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /api/jobs/:id/managers
+   * Assign managers to an existing job
+   */
+  assignManagers = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+      const { managerIds } = req.body;
+
+      const job = await this.service.assignManagersToJob(jobId, companyId, managerIds);
+      successResponse(res, job, 'Managers assigned successfully');
     } catch (error) {
       next(error);
     }

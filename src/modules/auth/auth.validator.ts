@@ -32,6 +32,11 @@ export const errorReportSchema = z.object({
   additionalInfo: z.record(z.any()).optional(),
 });
 
+export const refreshSchema = z.object({
+  refreshToken: z.string().min(1, 'Refresh token is required'),
+});
+
 export type LoginInput = z.infer<typeof loginSchema>;
 export type RegisterInput = z.infer<typeof registerSchema>;
 export type ErrorReportInput = z.infer<typeof errorReportSchema>;
+export type RefreshInput = z.infer<typeof refreshSchema>;

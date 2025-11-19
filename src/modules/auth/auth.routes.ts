@@ -4,7 +4,7 @@ import { Router } from 'express';
 import { AuthController } from './auth.controller';
 import { validateRequest } from '../../middlewares/validate-request';
 import { authenticateToken } from '../../middlewares/auth';
-import { loginSchema, registerSchema, errorReportSchema } from './auth.validator';
+import { loginSchema, registerSchema, errorReportSchema, refreshSchema } from './auth.validator';
 
 const router = Router();
 const authController = new AuthController();
@@ -80,6 +80,60 @@ router.post('/register', validateRequest(registerSchema), authController.registe
  *               $ref: '#/components/schemas/Error'
  */
 router.post('/login', validateRequest(loginSchema), authController.login);
+
+/**
+ * @swagger
+ * /api/auth/refresh:
+ *   post:
+ *     tags:
+ *       - Authentication
+ *     summary: Refresh access token
+ *     description: Exchange a valid refresh token for new access and refresh tokens
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               refreshToken:
+ *                 type: string
+ *                 example: eyJhbGciOiJIUzI1NiIsInR5cCI6IkpXVCJ9...
+ *     responses:
+ *       200:
+ *         description: Token refreshed
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Token refreshed
+ *                 data:
+ *                   type: object
+ *                   properties:
+ *                     accessToken:
+ *                       type: string
+ *                     refreshToken:
+ *                       type: string
+ *       400:
+ *         description: Validation error
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/ValidationError'
+ *       401:
+ *         description: Invalid or expired refresh token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.post('/refresh', validateRequest(refreshSchema), authController.refresh);
 
 /**
  * @swagger

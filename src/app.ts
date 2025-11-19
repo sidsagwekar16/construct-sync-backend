@@ -13,6 +13,9 @@ import teamsRoutes from './modules/teams/teams.routes';
 import sitesRoutes from './modules/sites/sites.routes';
 import jobsRoutes from './modules/jobs/jobs.routes';
 import tasksRoutes from './modules/tasks/tasks.routes';
+import usersRoutes from './modules/users/users.routes';
+import subcontractorsRoutes from './modules/subcontractors/subcontractors.routes';
+import budgetsRoutes from './modules/budgets/budgets.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -78,6 +81,9 @@ export const createApp = (): Application => {
   app.use('/api/sites', sitesRoutes);
   app.use('/api/jobs', jobsRoutes);
   app.use('/api/tasks', tasksRoutes);
+  app.use('/api/workers', usersRoutes);
+  app.use('/api/subcontractors', subcontractorsRoutes);
+  app.use('/api/budgets', budgetsRoutes);
 
   // 404 handler
   app.use(notFoundHandler);

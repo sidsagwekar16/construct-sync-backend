@@ -12,6 +12,7 @@ export interface Site {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  radius: number | null;
   status: SiteStatus | null;
   deleted_at: Date | null;
   created_at: Date;
@@ -26,6 +27,7 @@ export interface CreateSiteRequest {
   address?: string;
   latitude?: number;
   longitude?: number;
+  radius?: number;
   status?: SiteStatus;
 }
 
@@ -37,6 +39,7 @@ export interface UpdateSiteRequest {
   address?: string;
   latitude?: number;
   longitude?: number;
+  radius?: number;
   status?: SiteStatus;
 }
 
@@ -50,6 +53,7 @@ export interface SiteResponse {
   address: string | null;
   latitude: number | null;
   longitude: number | null;
+  radius: number | null;
   status: SiteStatus | null;
   createdAt: Date;
   updatedAt: Date;

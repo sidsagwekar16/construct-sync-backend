@@ -13,7 +13,8 @@ class Database {
       },
       max: 20,
       idleTimeoutMillis: 30000,
-      connectionTimeoutMillis: 2000,
+      connectionTimeoutMillis: 10000, // Increased from 2000 to 10000ms
+      query_timeout: 30000, // 30 second query timeout
     });
 
     this.pool.on('error', (err) => {

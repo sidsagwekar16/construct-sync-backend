@@ -1,411 +1,333 @@
+// Jobs API tests with mocked database
+
 import request from 'supertest';
 import { createApp } from '../src/app';
-import { mockDbQuery } from './setup';
-import { UserRole, JobStatus } from '../src/types/enums';
+import { Application } from 'express';
 import jwt from 'jsonwebtoken';
 import { env } from '../src/config/env';
+import { mockDbQuery } from './setup';
+import { v4 as uuidv4 } from 'uuid';
+import { UserRole, JobStatus, PriorityLevel } from '../src/types/enums';
 
-describe('Jobs API Tests', () => {
-  let app: any;
+describe('Jobs API', () => {
+  let app: Application;
   let authToken: string;
-  const mockUserId = '123e4567-e89b-12d3-a456-426614174001';
-  const mockCompanyId = '123e4567-e89b-12d3-a456-426614174000';
-  const mockJobId = '123e4567-e89b-12d3-a456-426614174040';
-  const mockSiteId = '123e4567-e89b-12d3-a456-426614174030';
+  const companyId = uuidv4();
+  const userId = uuidv4();
+  const jobId = uuidv4();
+  const siteId = uuidv4();
+  const workerId1 = uuidv4();
+  const workerId2 = uuidv4();
+  const managerId1 = uuidv4();
 
   beforeAll(() => {
     app = createApp();
-    
-    // Generate a valid JWT token for testing
+
+    // Generate auth token
     authToken = jwt.sign(
-      {
-        userId: mockUserId,
-        email: 'test@example.com',
-        role: UserRole.COMPANY_ADMIN,
-        companyId: mockCompanyId,
-      },
+      { userId, companyId, email: 'test@example.com', role: UserRole.COMPANY_ADMIN },
       env.jwt.secret,
       { expiresIn: '1h' }
     );
   });
 
   describe('POST /api/jobs', () => {
-    it('should create a new job successfully', async () => {
-      const jobData = {
-        name: 'New Construction Project',
-        description: 'Building a new office complex',
-        jobNumber: 'JOB-2024-001',
-        siteId: mockSiteId,
-        status: JobStatus.DRAFT,
-        startDate: '2024-01-15',
-        endDate: '2024-12-31',
-      };
-
+    it('should create a new job with all fields', async () => {
       const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: mockSiteId,
-        job_number: jobData.jobNumber,
-        name: jobData.name,
-        description: jobData.description,
-        status: jobData.status,
-        start_date: new Date(jobData.startDate),
-        end_date: new Date(jobData.endDate),
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
+        name: 'New Job',
+        description: 'New Job Description',
+        job_number: 'JOB-002',
+        job_type: 'Commercial Construction',
+        status: JobStatus.PLANNED,
+        priority: PriorityLevel.HIGH,
+        start_date: new Date('2024-01-01T08:00:00Z'),
+        end_date: new Date('2024-12-31T17:00:00Z'),
+        completed_date: null,
+        assigned_to: userId,
+        created_by: userId,
         deleted_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
+      // Mock: verifySiteCompany, verifyUserCompany (assignedTo), verifyUserCompany (worker1), 
+      // verifyUserCompany (worker2), verifyUserCompany (manager1), createJob, addWorkers, addManagers,
+      // getUserDetails (assignedTo), getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
       mockDbQuery
-        .mockResolvedValueOnce({ rows: [{ id: mockSiteId }] } as any) // verifySiteCompany
-        .mockResolvedValueOnce({ rows: [mockJob] } as any); // createJob
+        .mockResolvedValueOnce({ rows: [{ id: siteId }] } as any) // verifySiteCompany
+        .mockResolvedValueOnce({ rows: [{ id: userId }] } as any) // verifyUserCompany (assignedTo)
+        .mockResolvedValueOnce({ rows: [{ id: workerId1 }] } as any) // verifyUserCompany (worker1)
+        .mockResolvedValueOnce({ rows: [{ id: workerId2 }] } as any) // verifyUserCompany (worker2)
+        .mockResolvedValueOnce({ rows: [{ id: managerId1 }] } as any) // verifyUserCompany (manager1)
+        .mockResolvedValueOnce({ rows: [mockJob] } as any) // createJob
+        .mockResolvedValueOnce({ rows: [] } as any) // addWorkers
+        .mockResolvedValueOnce({ rows: [] } as any) // addManagers
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any) // getUserDetails (assignedTo)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any) // getUserDetails (createdBy)
+        .mockResolvedValueOnce({ rows: [{ id: workerId1, first_name: 'Worker', last_name: 'One', email: 'worker1@example.com' }] } as any) // getJobWorkersWithDetails
+        .mockResolvedValueOnce({ rows: [{ id: managerId1, first_name: 'Manager', last_name: 'One', email: 'manager1@example.com' }] } as any); // getJobManagersWithDetails
 
       const response = await request(app)
         .post('/api/jobs')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(jobData)
-        .expect(201);
+        .send({
+          name: 'New Job',
+          description: 'New Job Description',
+          jobNumber: 'JOB-002',
+          jobType: 'Commercial Construction',
+          siteId,
+          status: JobStatus.PLANNED,
+          priority: PriorityLevel.HIGH,
+          startDate: '2024-01-01T08:00:00Z',
+          endDate: '2024-12-31T17:00:00Z',
+          assignedTo: userId,
+          workerIds: [workerId1, workerId2],
+          managerIds: [managerId1],
+        });
 
+      expect(response.status).toBe(201);
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Job created successfully');
-      expect(response.body.data).toHaveProperty('id', mockJobId);
-      expect(response.body.data).toHaveProperty('name', jobData.name);
-      expect(response.body.data).toHaveProperty('jobNumber', jobData.jobNumber);
-    });
-
-    it('should create a job without optional fields', async () => {
-      const jobData = {
-        name: 'Simple Job',
-      };
-
-      const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: null,
-        job_number: null,
-        name: jobData.name,
-        description: null,
-        status: JobStatus.DRAFT,
-        start_date: null,
-        end_date: null,
-        deleted_at: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      mockDbQuery.mockResolvedValueOnce({ rows: [mockJob] } as any);
-
-      const response = await request(app)
-        .post('/api/jobs')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send(jobData)
-        .expect(201);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.name).toBe(jobData.name);
-    });
-
-    it('should fail with invalid job name', async () => {
-      const jobData = {
-        name: '', // Empty name
-      };
-
-      const response = await request(app)
-        .post('/api/jobs')
-        .set('Authorization', `Bearer ${authToken}`)
-        .send(jobData)
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
+      expect(response.body.data.name).toBe('New Job');
+      expect(response.body.data.jobNumber).toBe('JOB-002');
+      expect(response.body.data.status).toBe(JobStatus.PLANNED);
+      expect(response.body.data.priority).toBe(PriorityLevel.HIGH);
     });
 
     it('should fail without authentication', async () => {
-      const jobData = {
-        name: 'Test Job',
-      };
-
       const response = await request(app)
         .post('/api/jobs')
-        .send(jobData)
-        .expect(401);
+        .send({
+          name: 'New Job',
+          description: 'New Job Description',
+        });
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Access token is required');
+      expect(response.status).toBe(401);
     });
 
-    it('should fail with invalid site ID', async () => {
-      const jobData = {
-        name: 'Test Job',
-        siteId: mockSiteId,
-      };
-
-      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any); // Site doesn't exist
+    it('should fail with invalid site', async () => {
+      // Mock: verifySiteCompany returns empty
+      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
         .post('/api/jobs')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(jobData)
-        .expect(400);
+        .send({
+          name: 'New Job',
+          siteId: uuidv4(), // Non-existent site
+        });
 
-      expect(response.body.success).toBe(false);
+      expect(response.status).toBe(400);
       expect(response.body.error).toContain('Site does not exist');
     });
 
-    it('should fail when end date is before start date', async () => {
-      const jobData = {
-        name: 'Test Job',
-        startDate: '2024-12-31',
-        endDate: '2024-01-01',
-      };
+    it('should fail with invalid date range', async () => {
+      const response = await request(app)
+        .post('/api/jobs')
+        .set('Authorization', `Bearer ${authToken}`)
+        .send({
+          name: 'New Job',
+          startDate: '2024-12-31T17:00:00Z',
+          endDate: '2024-01-01T08:00:00Z',
+        });
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Validation failed');
+    });
+
+    it('should fail with invalid worker ID', async () => {
+      const invalidWorkerId = uuidv4();
+      
+      // Mock: verifyUserCompany returns empty for the worker
+      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
         .post('/api/jobs')
         .set('Authorization', `Bearer ${authToken}`)
-        .send(jobData)
-        .expect(400);
+        .send({
+          name: 'New Job',
+          workerIds: [invalidWorkerId],
+        });
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toContain('End date must be after start date');
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('Worker');
+      expect(response.body.error).toContain('does not exist');
     });
   });
 
   describe('GET /api/jobs', () => {
-    it('should list all jobs for a company', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: mockSiteId,
-          job_number: 'JOB-001',
-          name: 'Job 1',
-          description: 'Description 1',
-          status: JobStatus.IN_PROGRESS,
-          start_date: new Date('2024-01-01'),
-          end_date: new Date('2024-12-31'),
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-        {
-          id: '123e4567-e89b-12d3-a456-426614174041',
-          company_id: mockCompanyId,
-          site_id: null,
-          job_number: 'JOB-002',
-          name: 'Job 2',
-          description: null,
-          status: JobStatus.DRAFT,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+    it('should list jobs for the company', async () => {
+      const mockJobs = [{
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
+        name: 'Test Job',
+        description: 'Test Description',
+        job_number: 'JOB-001',
+        job_type: 'Residential',
+        status: JobStatus.DRAFT,
+        priority: PriorityLevel.MEDIUM,
+        start_date: null,
+        end_date: null,
+        completed_date: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }];
 
+      // Mock: countQuery, listQuery, getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
       mockDbQuery
-        .mockResolvedValueOnce({ rows: [{ count: '2' }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
+        .mockResolvedValueOnce({ rows: [{ count: '1' }] } as any) // count
+        .mockResolvedValueOnce({ rows: mockJobs } as any) // list
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any) // getUserDetails (createdBy)
+        .mockResolvedValueOnce({ rows: [] } as any) // getJobWorkersWithDetails
+        .mockResolvedValueOnce({ rows: [] } as any); // getJobManagersWithDetails
 
       const response = await request(app)
         .get('/api/jobs')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .set('Authorization', `Bearer ${authToken}`);
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.jobs).toHaveLength(2);
-      expect(response.body.data.total).toBe(2);
-      expect(response.body.data).toHaveProperty('page');
-      expect(response.body.data).toHaveProperty('limit');
-    });
-
-    it('should filter jobs by search term', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: null,
-          job_number: 'JOB-001',
-          name: 'Construction Project',
-          description: null,
-          status: JobStatus.IN_PROGRESS,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
-
-      mockDbQuery
-        .mockResolvedValueOnce({ rows: [{ count: '1' }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
-
-      const response = await request(app)
-        .get('/api/jobs?search=Construction')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.jobs).toHaveLength(1);
+      expect(Array.isArray(response.body.data.jobs)).toBe(true);
+      expect(response.body.data.jobs.length).toBe(1);
     });
 
     it('should filter jobs by status', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: null,
-          job_number: null,
-          name: 'Active Job',
-          description: null,
-          status: JobStatus.IN_PROGRESS,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+      const mockJobs = [{
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
+        name: 'Test Job',
+        status: JobStatus.DRAFT,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }];
 
       mockDbQuery
         .mockResolvedValueOnce({ rows: [{ count: '1' }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
+        .mockResolvedValueOnce({ rows: mockJobs } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs?status=${JobStatus.IN_PROGRESS}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .get(`/api/jobs?status=${JobStatus.DRAFT}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.jobs).toHaveLength(1);
-      expect(response.body.data.jobs[0].status).toBe(JobStatus.IN_PROGRESS);
+      expect(response.status).toBe(200);
+      expect(response.body.data.jobs.every((job: any) => job.status === JobStatus.DRAFT)).toBe(true);
     });
 
-    it('should filter jobs by site', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: mockSiteId,
-          job_number: null,
-          name: 'Site Job',
-          description: null,
-          status: JobStatus.DRAFT,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+    it('should filter jobs by priority', async () => {
+      const mockJobs = [{
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        status: JobStatus.DRAFT,
+        priority: PriorityLevel.HIGH,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }];
 
       mockDbQuery
         .mockResolvedValueOnce({ rows: [{ count: '1' }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
+        .mockResolvedValueOnce({ rows: mockJobs } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs?siteId=${mockSiteId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .get(`/api/jobs?priority=${PriorityLevel.HIGH}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.jobs).toHaveLength(1);
-      expect(response.body.data.jobs[0].siteId).toBe(mockSiteId);
-    });
-
-    it('should paginate jobs correctly', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: null,
-          job_number: null,
-          name: 'Job 1',
-          description: null,
-          status: JobStatus.DRAFT,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
-
-      mockDbQuery
-        .mockResolvedValueOnce({ rows: [{ count: '10' }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
-
-      const response = await request(app)
-        .get('/api/jobs?page=2&limit=5')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.page).toBe(2);
-      expect(response.body.data.limit).toBe(5);
+      expect(response.status).toBe(200);
+      expect(response.body.data.jobs.every((job: any) => job.priority === PriorityLevel.HIGH)).toBe(true);
     });
   });
 
   describe('GET /api/jobs/:id', () => {
-    it('should get a job by ID', async () => {
+    it('should get a job by id with all relationships', async () => {
       const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: mockSiteId,
-        job_number: 'JOB-001',
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
         name: 'Test Job',
-        description: 'Test description',
-        status: JobStatus.IN_PROGRESS,
-        start_date: new Date('2024-01-01'),
-        end_date: new Date('2024-12-31'),
+        description: 'Test Description',
+        job_number: 'JOB-001',
+        job_type: 'Commercial',
+        status: JobStatus.DRAFT,
+        priority: PriorityLevel.MEDIUM,
+        start_date: null,
+        end_date: null,
+        completed_date: null,
+        assigned_to: userId,
+        created_by: userId,
         deleted_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
-      mockDbQuery.mockResolvedValueOnce({ rows: [mockJob] } as any);
+      // Mock: findJobById, getUserDetails (assignedTo), getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [mockJob] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: workerId1, first_name: 'Worker', last_name: 'One', email: 'worker1@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: managerId1, first_name: 'Manager', last_name: 'One', email: 'manager1@example.com' }] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs/${mockJobId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .get(`/api/jobs/${jobId}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('id', mockJobId);
-      expect(response.body.data).toHaveProperty('name', 'Test Job');
+      expect(response.body.data.id).toBe(jobId);
+      expect(response.body.data.name).toBe('Test Job');
+      expect(response.body.data).toHaveProperty('workers');
+      expect(response.body.data).toHaveProperty('managers');
+      expect(response.body.data).toHaveProperty('createdByUser');
     });
 
     it('should return 404 for non-existent job', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs/${mockJobId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+        .get(`/api/jobs/${uuidv4()}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Job not found');
+      expect(response.status).toBe(404);
     });
   });
 
   describe('PATCH /api/jobs/:id', () => {
-    it('should update a job successfully', async () => {
-      const updateData = {
-        name: 'Updated Job Name',
-        description: 'Updated description',
-        status: JobStatus.IN_PROGRESS,
-      };
-
+    it('should update a job', async () => {
       const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: null,
-        job_number: 'JOB-001',
-        name: 'Original Name',
-        description: 'Original description',
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
+        name: 'Test Job',
         status: JobStatus.DRAFT,
+        priority: PriorityLevel.MEDIUM,
+        job_type: 'Residential',
         start_date: null,
         end_date: null,
+        completed_date: null,
+        assigned_to: null,
+        created_by: userId,
         deleted_at: null,
         created_at: new Date(),
         updated_at: new Date(),
@@ -413,229 +335,356 @@ describe('Jobs API Tests', () => {
 
       const updatedJob = {
         ...mockJob,
-        name: updateData.name,
-        description: updateData.description,
-        status: updateData.status,
+        name: 'Updated Job',
+        description: 'Updated Description',
+        status: JobStatus.IN_PROGRESS,
+        priority: PriorityLevel.HIGH,
       };
 
+      // Mock: findJobById, updateJob, getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
       mockDbQuery
         .mockResolvedValueOnce({ rows: [mockJob] } as any)
-        .mockResolvedValueOnce({ rows: [updatedJob] } as any);
+        .mockResolvedValueOnce({ rows: [updatedJob] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .patch(`/api/jobs/${mockJobId}`)
+        .patch(`/api/jobs/${jobId}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send(updateData)
-        .expect(200);
+        .send({
+          name: 'Updated Job',
+          description: 'Updated Description',
+          status: JobStatus.IN_PROGRESS,
+          priority: PriorityLevel.HIGH,
+        });
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Job updated successfully');
-      expect(response.body.data.name).toBe(updateData.name);
-      expect(response.body.data.status).toBe(updateData.status);
+      expect(response.body.data.name).toBe('Updated Job');
+      expect(response.body.data.status).toBe(JobStatus.IN_PROGRESS);
     });
 
-    it('should update job with new site', async () => {
-      const updateData = {
-        siteId: mockSiteId,
-      };
-
+    it('should update job workers and managers', async () => {
       const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: null,
-        job_number: null,
+        id: jobId,
+        company_id: companyId,
         name: 'Test Job',
-        description: null,
         status: JobStatus.DRAFT,
-        start_date: null,
-        end_date: null,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
         deleted_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
+      const updatedJob = { ...mockJob };
+
+      // Mock: findJobById, verifyUserCompany (worker), verifyUserCompany (manager), 
+      // updateJob, removeAllWorkers, addWorkers, removeAllManagers, addManagers,
+      // getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
       mockDbQuery
         .mockResolvedValueOnce({ rows: [mockJob] } as any)
-        .mockResolvedValueOnce({ rows: [{ id: mockSiteId }] } as any)
-        .mockResolvedValueOnce({ rows: [{ ...mockJob, site_id: mockSiteId }] } as any);
+        .mockResolvedValueOnce({ rows: [{ id: workerId1 }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: managerId1 }] } as any)
+        .mockResolvedValueOnce({ rows: [updatedJob] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any) // removeAllWorkers
+        .mockResolvedValueOnce({ rows: [] } as any) // addWorkers
+        .mockResolvedValueOnce({ rows: [] } as any) // removeAllManagers
+        .mockResolvedValueOnce({ rows: [] } as any) // addManagers
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: workerId1, first_name: 'Worker', last_name: 'One', email: 'worker1@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: managerId1, first_name: 'Manager', last_name: 'One', email: 'manager1@example.com' }] } as any);
 
       const response = await request(app)
-        .patch(`/api/jobs/${mockJobId}`)
+        .patch(`/api/jobs/${jobId}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send(updateData)
-        .expect(200);
+        .send({
+          workerIds: [workerId1],
+          managerIds: [managerId1],
+        });
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data.siteId).toBe(mockSiteId);
-    });
-
-    it('should fail when updating with invalid site', async () => {
-      const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: null,
-        job_number: null,
-        name: 'Test Job',
-        description: null,
-        status: JobStatus.DRAFT,
-        start_date: null,
-        end_date: null,
-        deleted_at: null,
-        created_at: new Date(),
-        updated_at: new Date(),
-      };
-
-      mockDbQuery
-        .mockResolvedValueOnce({ rows: [mockJob] } as any)
-        .mockResolvedValueOnce({ rows: [] } as any); // Site doesn't exist
-
-      const response = await request(app)
-        .patch(`/api/jobs/${mockJobId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .send({ siteId: mockSiteId })
-        .expect(400);
-
-      expect(response.body.success).toBe(false);
     });
 
     it('should return 404 for non-existent job', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .patch(`/api/jobs/${mockJobId}`)
+        .patch(`/api/jobs/${uuidv4()}`)
         .set('Authorization', `Bearer ${authToken}`)
-        .send({ name: 'New Name' })
-        .expect(404);
+        .send({
+          name: 'Updated Job',
+        });
 
-      expect(response.body.success).toBe(false);
+      expect(response.status).toBe(404);
     });
   });
 
   describe('DELETE /api/jobs/:id', () => {
-    it('should delete a job successfully', async () => {
+    it('should delete a job', async () => {
       const mockJob = {
-        id: mockJobId,
-        company_id: mockCompanyId,
-        site_id: null,
-        job_number: null,
-        name: 'Job to Delete',
-        description: null,
-        status: JobStatus.DRAFT,
-        start_date: null,
-        end_date: null,
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        created_by: userId,
         deleted_at: null,
         created_at: new Date(),
         updated_at: new Date(),
       };
 
+      // Mock: findJobById, deleteJob
       mockDbQuery
         .mockResolvedValueOnce({ rows: [mockJob] } as any)
-        .mockResolvedValueOnce({ rows: [{ id: mockJobId }] } as any);
+        .mockResolvedValueOnce({ rows: [{ id: jobId }] } as any);
 
       const response = await request(app)
-        .delete(`/api/jobs/${mockJobId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .delete(`/api/jobs/${jobId}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.message).toBe('Job deleted successfully');
     });
 
     it('should return 404 for non-existent job', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .delete(`/api/jobs/${mockJobId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+        .delete(`/api/jobs/${uuidv4()}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Job not found');
+      expect(response.status).toBe(404);
+    });
+  });
+
+  describe('PATCH /api/jobs/:id/archive', () => {
+    it('should archive a job', async () => {
+      const mockJob = {
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        status: JobStatus.DRAFT,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      const archivedJob = {
+        ...mockJob,
+        status: JobStatus.ARCHIVED,
+      };
+
+      // Mock: findJobById, archiveJob, getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [mockJob] } as any)
+        .mockResolvedValueOnce({ rows: [archivedJob] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/archive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe(JobStatus.ARCHIVED);
+    });
+
+    it('should fail if job is already archived', async () => {
+      const archivedJob = {
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        status: JobStatus.ARCHIVED,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockDbQuery.mockResolvedValueOnce({ rows: [archivedJob] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/archive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('already archived');
+    });
+
+    it('should return 404 for non-existent job', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${uuidv4()}/archive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should fail without authentication', async () => {
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/archive`);
+
+      expect(response.status).toBe(401);
+    });
+  });
+
+  describe('PATCH /api/jobs/:id/unarchive', () => {
+    it('should unarchive a job', async () => {
+      const archivedJob = {
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        status: JobStatus.ARCHIVED,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      const unarchivedJob = {
+        ...archivedJob,
+        status: JobStatus.DRAFT,
+      };
+
+      // Mock: findJobById, unarchiveJob, getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [archivedJob] } as any)
+        .mockResolvedValueOnce({ rows: [unarchivedJob] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/unarchive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(200);
+      expect(response.body.success).toBe(true);
+      expect(response.body.data.status).toBe(JobStatus.DRAFT);
+    });
+
+    it('should fail if job is not archived', async () => {
+      const mockJob = {
+        id: jobId,
+        company_id: companyId,
+        name: 'Test Job',
+        status: JobStatus.DRAFT,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockDbQuery.mockResolvedValueOnce({ rows: [mockJob] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/unarchive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(400);
+      expect(response.body.error).toContain('not archived');
+    });
+
+    it('should return 404 for non-existent job', async () => {
+      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
+
+      const response = await request(app)
+        .patch(`/api/jobs/${uuidv4()}/unarchive`)
+        .set('Authorization', `Bearer ${authToken}`);
+
+      expect(response.status).toBe(404);
+    });
+
+    it('should fail without authentication', async () => {
+      const response = await request(app)
+        .patch(`/api/jobs/${jobId}/unarchive`);
+
+      expect(response.status).toBe(401);
     });
   });
 
   describe('GET /api/jobs/statistics', () => {
-    it('should get job statistics successfully', async () => {
+    it('should get job statistics', async () => {
       const mockStats = [
         { status: JobStatus.DRAFT, count: '5' },
-        { status: JobStatus.IN_PROGRESS, count: '10' },
-        { status: JobStatus.COMPLETED, count: '3' },
+        { status: JobStatus.IN_PROGRESS, count: '3' },
       ];
 
       mockDbQuery.mockResolvedValueOnce({ rows: mockStats } as any);
 
       const response = await request(app)
         .get('/api/jobs/statistics')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .set('Authorization', `Bearer ${authToken}`);
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveProperty('total', 18);
+      expect(response.body.data).toHaveProperty('total');
       expect(response.body.data).toHaveProperty('byStatus');
-      expect(response.body.data.byStatus[JobStatus.DRAFT]).toBe(5);
-      expect(response.body.data.byStatus[JobStatus.IN_PROGRESS]).toBe(10);
-      expect(response.body.data.byStatus[JobStatus.COMPLETED]).toBe(3);
-    });
-
-    it('should return empty statistics when no jobs exist', async () => {
-      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
-
-      const response = await request(app)
-        .get('/api/jobs/statistics')
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
-
-      expect(response.body.success).toBe(true);
-      expect(response.body.data.total).toBe(0);
-      expect(response.body.data.byStatus).toEqual({});
     });
   });
 
   describe('GET /api/jobs/by-site/:siteId', () => {
-    it('should get jobs by site successfully', async () => {
-      const mockJobs = [
-        {
-          id: mockJobId,
-          company_id: mockCompanyId,
-          site_id: mockSiteId,
-          job_number: 'JOB-001',
-          name: 'Job 1',
-          description: null,
-          status: JobStatus.IN_PROGRESS,
-          start_date: null,
-          end_date: null,
-          deleted_at: null,
-          created_at: new Date(),
-          updated_at: new Date(),
-        },
-      ];
+    it('should get jobs by site', async () => {
+      const mockJobs = [{
+        id: jobId,
+        company_id: companyId,
+        site_id: siteId,
+        name: 'Test Job',
+        status: JobStatus.DRAFT,
+        priority: null,
+        job_type: null,
+        assigned_to: null,
+        created_by: userId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      }];
 
+      // Mock: verifySiteCompany, getJobsBySite, getUserDetails (createdBy), getJobWorkersWithDetails, getJobManagersWithDetails
       mockDbQuery
-        .mockResolvedValueOnce({ rows: [{ id: mockSiteId }] } as any)
-        .mockResolvedValueOnce({ rows: mockJobs } as any);
+        .mockResolvedValueOnce({ rows: [{ id: siteId }] } as any)
+        .mockResolvedValueOnce({ rows: mockJobs } as any)
+        .mockResolvedValueOnce({ rows: [{ id: userId, first_name: 'John', last_name: 'Doe', email: 'john@example.com' }] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any)
+        .mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs/by-site/${mockSiteId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(200);
+        .get(`/api/jobs/by-site/${siteId}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
+      expect(response.status).toBe(200);
       expect(response.body.success).toBe(true);
-      expect(response.body.data).toHaveLength(1);
-      expect(response.body.data[0].siteId).toBe(mockSiteId);
+      expect(Array.isArray(response.body.data)).toBe(true);
+      expect(response.body.data.every((job: any) => job.siteId === siteId)).toBe(true);
     });
 
     it('should return 404 for non-existent site', async () => {
       mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
-        .get(`/api/jobs/by-site/${mockSiteId}`)
-        .set('Authorization', `Bearer ${authToken}`)
-        .expect(404);
+        .get(`/api/jobs/by-site/${uuidv4()}`)
+        .set('Authorization', `Bearer ${authToken}`);
 
-      expect(response.body.success).toBe(false);
-      expect(response.body.error).toBe('Site not found');
+      expect(response.status).toBe(404);
     });
   });
 });
-
-

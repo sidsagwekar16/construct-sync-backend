@@ -77,11 +77,12 @@ export class SitesRepository {
     address?: string,
     latitude?: number,
     longitude?: number,
+    radius?: number,
     status?: SiteStatus
   ): Promise<Site> {
     const query = `
-      INSERT INTO sites (company_id, name, address, latitude, longitude, status)
-      VALUES ($1, $2, $3, $4, $5, $6)
+      INSERT INTO sites (company_id, name, address, latitude, longitude, radius, status)
+      VALUES ($1, $2, $3, $4, $5, $6, $7)
       RETURNING *
     `;
     const result = await db.query<Site>(query, [
@@ -90,6 +91,7 @@ export class SitesRepository {
       address || null,
       latitude || null,
       longitude || null,
+      radius || 100.00,
       status || SiteStatus.PLANNING,
     ]);
     return result.rows[0];
@@ -106,6 +108,7 @@ export class SitesRepository {
       address?: string;
       latitude?: number | null;
       longitude?: number | null;
+      radius?: number | null;
       status?: SiteStatus;
     }
   ): Promise<Site | null> {
@@ -134,6 +137,12 @@ export class SitesRepository {
     if (data.longitude !== undefined) {
       updates.push(`longitude = $${paramIndex}`);
       params.push(data.longitude);
+      paramIndex++;
+    }
+
+    if (data.radius !== undefined) {
+      updates.push(`radius = $${paramIndex}`);
+      params.push(data.radius);
       paramIndex++;
     }
 

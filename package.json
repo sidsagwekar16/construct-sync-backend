@@ -10,7 +10,10 @@
     "test": "jest --runInBand --detectOpenHandles --forceExit",
     "test:watch": "jest --watch",
     "test:coverage": "jest --coverage",
-    "migrate": "node dist/db/migrations/run.js"
+    "migrate": "tsx src/db/migrations/migrate.ts",
+    "migrate:verify": "tsx src/db/migrations/migrate.ts verify",
+    "migrate:check-workers": "tsx src/db/migrations/migrate.ts check-workers",
+    "migrate:rollback": "tsx src/db/migrations/run.ts rollback"
   },
   "keywords": [],
   "author": "",

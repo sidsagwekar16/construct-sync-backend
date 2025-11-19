@@ -1,6 +1,6 @@
 // Jobs module types
 
-import { JobStatus } from '../../types/enums';
+import { JobStatus, PriorityLevel } from '../../types/enums';
 
 /**
  * Database schema for jobs table
@@ -12,12 +12,37 @@ export interface Job {
   job_number: string | null;
   name: string;
   description: string | null;
+  job_type: string | null;
   status: JobStatus | null;
+  priority: PriorityLevel | null;
   start_date: Date | null;
   end_date: Date | null;
+  completed_date: Date | null;
+  assigned_to: string | null;
+  created_by: string;
   deleted_at: Date | null;
   created_at: Date;
   updated_at: Date;
+}
+
+/**
+ * Worker assignment for a job
+ */
+export interface JobWorker {
+  id: string;
+  job_id: string;
+  user_id: string;
+  created_at: Date;
+}
+
+/**
+ * Manager assignment for a job
+ */
+export interface JobManager {
+  id: string;
+  job_id: string;
+  user_id: string;
+  created_at: Date;
 }
 
 /**
@@ -27,10 +52,15 @@ export interface CreateJobRequest {
   name: string;
   description?: string;
   jobNumber?: string;
+  jobType?: string;
   siteId?: string;
   status?: JobStatus;
+  priority?: PriorityLevel;
   startDate?: string;
   endDate?: string;
+  completedDate?: string;
+  assignedTo?: string;
+  // Workers and managers are assigned separately after job creation
 }
 
 /**
@@ -40,14 +70,20 @@ export interface UpdateJobRequest {
   name?: string;
   description?: string;
   jobNumber?: string;
+  jobType?: string;
   siteId?: string;
   status?: JobStatus;
+  priority?: PriorityLevel;
   startDate?: string;
   endDate?: string;
+  completedDate?: string;
+  assignedTo?: string;
+  workerIds?: string[];
+  managerIds?: string[];
 }
 
 /**
- * Response object for job
+ * Response object for job with populated relationships
  */
 export interface JobResponse {
   id: string;
@@ -56,9 +92,38 @@ export interface JobResponse {
   jobNumber: string | null;
   name: string;
   description: string | null;
+  jobType: string | null;
   status: JobStatus | null;
+  priority: PriorityLevel | null;
   startDate: Date | null;
   endDate: Date | null;
+  completedDate: Date | null;
+  assignedTo: string | null;
+  assignedToUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  } | null;
+  createdBy: string;
+  createdByUser?: {
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  };
+  workers?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }>;
+  managers?: Array<{
+    id: string;
+    firstName: string;
+    lastName: string;
+    email: string;
+  }>;
   createdAt: Date;
   updatedAt: Date;
 }
@@ -71,5 +136,8 @@ export interface ListJobsQuery {
   limit?: number;
   search?: string;
   status?: JobStatus;
+  priority?: PriorityLevel;
   siteId?: string;
+  assignedTo?: string;
+  jobType?: string;
 }

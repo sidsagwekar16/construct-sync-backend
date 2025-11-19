@@ -557,5 +557,76 @@ describe('Auth API Tests', () => {
       expect(response.body.error).toContain('not found');
     });
   });
+
+  describe('POST /api/auth/refresh', () => {
+    it('should refresh tokens with a valid refresh token', async () => {
+      const mockUserId = '123e4567-e89b-12d3-a456-426614174001';
+      const mockCompanyId = '123e4567-e89b-12d3-a456-426614174000';
+
+      // Create a valid refresh token JWT
+      const refreshToken = jwt.sign(
+        {
+          userId: mockUserId,
+          email: 'test@example.com',
+          role: UserRole.COMPANY_ADMIN,
+          companyId: mockCompanyId,
+        },
+        env.jwt.secret,
+        { expiresIn: '30d' }
+      );
+
+      // DB mocks: findRefreshTokenByToken → createSession → createRefreshToken
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [{ id: 'rt1', user_id: mockUserId, token: 'hashed', expires_at: new Date(Date.now() + 86400000), created_at: new Date() }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: 'session-id', user_id: mockUserId, token: 'hashed', expires_at: new Date(Date.now() + 86400000) }] } as any)
+        .mockResolvedValueOnce({ rows: [{ id: 'new-rt-id', user_id: mockUserId, token: 'hashed', expires_at: new Date(Date.now() + 2592000000) }] } as any);
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(200);
+
+      expect(response.body.success).toBe(true);
+      expect(response.body.message).toBe('Token refreshed');
+      expect(response.body.data).toHaveProperty('accessToken');
+      expect(response.body.data).toHaveProperty('refreshToken');
+    });
+
+    it('should fail with invalid refresh token', async () => {
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken: 'invalid-token' })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid or expired refresh token');
+    });
+
+    it('should fail when refresh token not found in DB', async () => {
+      const mockUserId = '123e4567-e89b-12d3-a456-426614174001';
+      const mockCompanyId = '123e4567-e89b-12d3-a456-426614174000';
+      const refreshToken = jwt.sign(
+        {
+          userId: mockUserId,
+          email: 'test@example.com',
+          role: UserRole.COMPANY_ADMIN,
+          companyId: mockCompanyId,
+        },
+        env.jwt.secret,
+        { expiresIn: '30d' }
+      );
+
+      // No record found
+      mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
+
+      const response = await request(app)
+        .post('/api/auth/refresh')
+        .send({ refreshToken })
+        .expect(401);
+
+      expect(response.body.success).toBe(false);
+      expect(response.body.error).toBe('Invalid or expired refresh token');
+    });
+  });
 });
 

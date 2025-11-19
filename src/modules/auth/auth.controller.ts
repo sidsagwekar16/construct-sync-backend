@@ -63,4 +63,14 @@ export class AuthController {
       next(error);
     }
   };
+
+  refresh = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const { refreshToken } = req.body as { refreshToken: string };
+      const tokens = await this.service.refreshTokens(refreshToken);
+      successResponse(res, tokens, 'Token refreshed');
+    } catch (error) {
+      next(error);
+    }
+  };
 }
