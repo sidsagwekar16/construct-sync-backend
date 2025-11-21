@@ -1,7 +1,10 @@
-import { Application } from 'express';
+// Test Setup File
+
 import { db } from '../src/db/connection';
 
-// Mock database connection for tests
+// Mock the database query method
+export const mockDbQuery = jest.fn();
+
 jest.mock('../src/db/connection', () => ({
   db: {
     query: jest.fn(),
@@ -11,22 +14,27 @@ jest.mock('../src/db/connection', () => ({
   },
 }));
 
-// Set test environment variables
-process.env.NODE_ENV = 'test';
-process.env.DATABASE_URL = 'postgresql://test:test@localhost/test_db';
-process.env.JWT_SECRET = 'test-jwt-secret-key-minimum-32-characters-long-for-testing';
-process.env.JWT_EXPIRES_IN = '7d';
-process.env.JWT_REFRESH_EXPIRES_IN = '30d';
-process.env.PORT = '3001';
-process.env.CORS_ORIGIN = 'http://localhost:3000';
-process.env.RATE_LIMIT_WINDOW_MS = '900000';
-process.env.RATE_LIMIT_MAX_REQUESTS = '100';
+// Setup for Jest tests
+beforeAll(async () => {
+  // Set test environment
+  process.env.NODE_ENV = 'test';
+  process.env.JWT_SECRET = 'test-secret-key-for-jwt-tokens';
+  process.env.JWT_REFRESH_SECRET = 'test-refresh-secret-key';
+  process.env.DATABASE_URL = 'postgresql://test:test@localhost:5432/test';
+  
+  // Set up the mock
+  (db.query as jest.Mock).mockImplementation(mockDbQuery);
+});
 
-// Global test helpers
-export const mockDbQuery = db.query as jest.MockedFunction<typeof db.query>;
-
-// Clear all mocks after each test
-afterEach(() => {
+afterAll(async () => {
+  // Clean up after all tests
   jest.clearAllMocks();
 });
 
+beforeEach(() => {
+  // Clear mock history before each test
+  mockDbQuery.mockClear();
+});
+
+// Increase timeout for database operations
+jest.setTimeout(30000);

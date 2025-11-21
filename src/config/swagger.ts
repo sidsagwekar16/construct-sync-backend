@@ -259,6 +259,10 @@ const options: swaggerJsdoc.Options = {
         name: 'Contract Payments',
         description: 'Contract payment tracking endpoints',
       },
+      {
+        name: 'Safety',
+        description: 'Safety incident reporting and management endpoints',
+      },
     ],
   },
   apis: ['./src/modules/*/*.routes.ts', './src/app.ts'],

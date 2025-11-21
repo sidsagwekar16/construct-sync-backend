@@ -108,3 +108,5 @@ CREATE INDEX idx_contract_payments_payment_date ON contract_payments(payment_dat
 -- 
 -- ============================================
 
+
+

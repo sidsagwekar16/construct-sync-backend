@@ -39,9 +39,9 @@ describe('Subcontractors API Tests', () => {
       const subcontractorData = {
         name: 'ABC Electrical Contractors',
         businessName: 'ABC Electrical Pty Ltd',
-        abn: '51 824 753 556',
+        abn: '51824753556',
         email: 'contact@abcelectrical.com',
-        phone: '+61 400 000 000',
+        phone: '+61400000000',
         address: '123 Industrial Ave, Sydney NSW 2000',
         trade: 'Electrical',
         description: 'Licensed electrical contractor',
@@ -51,8 +51,14 @@ describe('Subcontractors API Tests', () => {
       const mockSubcontractor = {
         id: mockSubcontractorId,
         company_id: mockCompanyId,
-        ...subcontractorData,
+        name: subcontractorData.name,
         business_name: subcontractorData.businessName,
+        abn: subcontractorData.abn,
+        email: subcontractorData.email,
+        phone: subcontractorData.phone,
+        address: subcontractorData.address,
+        trade: subcontractorData.trade,
+        description: subcontractorData.description,
         is_active: subcontractorData.isActive,
         deleted_at: null,
         created_at: new Date(),
@@ -400,9 +406,11 @@ describe('Subcontractors API Tests', () => {
         },
       ];
 
+      // Mock count query
       mockDbQuery.mockResolvedValueOnce({ rows: [{ count: '1' }] } as any);
+      // Mock contracts query
       mockDbQuery.mockResolvedValueOnce({ rows: mockContracts } as any);
-      // Mock details for each contract
+      // Mock details query for each contract
       mockDbQuery.mockResolvedValueOnce({
         rows: [{ ...mockContracts[0], subcontractor_name: 'ABC', job_name: 'Job A' }],
       } as any);
@@ -415,10 +423,13 @@ describe('Subcontractors API Tests', () => {
       expect(response.body.success).toBe(true);
       expect(response.body.data).toHaveProperty('contracts');
       expect(response.body.data).toHaveProperty('total', 1);
+      expect(response.body.data.contracts).toHaveLength(1);
     });
 
     it('should filter contracts by status', async () => {
+      // Mock count query
       mockDbQuery.mockResolvedValueOnce({ rows: [{ count: '0' }] } as any);
+      // Mock contracts query
       mockDbQuery.mockResolvedValueOnce({ rows: [] } as any);
 
       const response = await request(app)
@@ -428,6 +439,7 @@ describe('Subcontractors API Tests', () => {
         .expect(200);
 
       expect(response.body.success).toBe(true);
+      expect(response.body.data).toHaveProperty('contracts');
       expect(response.body.data.contracts).toHaveLength(0);
     });
   });

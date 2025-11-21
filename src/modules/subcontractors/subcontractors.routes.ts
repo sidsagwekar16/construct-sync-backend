@@ -24,6 +24,65 @@ const subcontractorsController = new SubcontractorsController();
 router.use(authenticateToken);
 
 // ============================================
+// CONTRACTS ROUTES (Must be before :id routes to avoid conflicts)
+// ============================================
+
+/**
+ * @swagger
+ * /api/subcontractors/contracts:
+ *   get:
+ *     tags:
+ *       - Subcontractor Contracts
+ *     summary: List all contracts
+ *     description: Get a paginated list of subcontractor contracts for the authenticated user's company
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: query
+ *         name: page
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           default: 1
+ *       - in: query
+ *         name: limit
+ *         schema:
+ *           type: integer
+ *           minimum: 1
+ *           maximum: 100
+ *           default: 10
+ *       - in: query
+ *         name: search
+ *         schema:
+ *           type: string
+ *         description: Search in contract title, description, or contract number
+ *       - in: query
+ *         name: subcontractorId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter by subcontractor
+ *       - in: query
+ *         name: jobId
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Filter by job
+ *       - in: query
+ *         name: status
+ *         schema:
+ *           type: string
+ *           enum: [draft, active, completed, terminated, expired]
+ *         description: Filter by contract status
+ *     responses:
+ *       200:
+ *         description: List of contracts retrieved successfully
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/contracts', subcontractorsController.listContracts);
+
+// ============================================
 // SUBCONTRACTORS ROUTES
 // ============================================
 
@@ -78,34 +137,6 @@ router.get('/', subcontractorsController.listSubcontractors);
 
 /**
  * @swagger
- * /api/subcontractors/{id}:
- *   get:
- *     tags:
- *       - Subcontractors
- *     summary: Get subcontractor by ID
- *     description: Get details of a specific subcontractor
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: path
- *         name: id
- *         required: true
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Subcontractor ID
- *     responses:
- *       200:
- *         description: Subcontractor retrieved successfully
- *       404:
- *         description: Subcontractor not found
- *       401:
- *         description: Unauthorized
- */
-router.get('/:id', subcontractorsController.getSubcontractorById);
-
-/**
- * @swagger
  * /api/subcontractors/{id}/stats:
  *   get:
  *     tags:
@@ -131,6 +162,34 @@ router.get('/:id', subcontractorsController.getSubcontractorById);
  *         description: Unauthorized
  */
 router.get('/:id/stats', subcontractorsController.getSubcontractorWithStats);
+
+/**
+ * @swagger
+ * /api/subcontractors/{id}:
+ *   get:
+ *     tags:
+ *       - Subcontractors
+ *     summary: Get subcontractor by ID
+ *     description: Get details of a specific subcontractor
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: id
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Subcontractor ID
+ *     responses:
+ *       200:
+ *         description: Subcontractor retrieved successfully
+ *       404:
+ *         description: Subcontractor not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:id', subcontractorsController.getSubcontractorById);
 
 /**
  * @swagger
@@ -292,63 +351,8 @@ router.patch(
 router.delete('/:id', subcontractorsController.deleteSubcontractor);
 
 // ============================================
-// CONTRACTS ROUTES
+// CONTRACTS ROUTES (Continued)
 // ============================================
-
-/**
- * @swagger
- * /api/subcontractors/contracts:
- *   get:
- *     tags:
- *       - Subcontractor Contracts
- *     summary: List all contracts
- *     description: Get a paginated list of subcontractor contracts for the authenticated user's company
- *     security:
- *       - bearerAuth: []
- *     parameters:
- *       - in: query
- *         name: page
- *         schema:
- *           type: integer
- *           minimum: 1
- *           default: 1
- *       - in: query
- *         name: limit
- *         schema:
- *           type: integer
- *           minimum: 1
- *           maximum: 100
- *           default: 10
- *       - in: query
- *         name: search
- *         schema:
- *           type: string
- *         description: Search in contract title, description, or contract number
- *       - in: query
- *         name: subcontractorId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by subcontractor
- *       - in: query
- *         name: jobId
- *         schema:
- *           type: string
- *           format: uuid
- *         description: Filter by job
- *       - in: query
- *         name: status
- *         schema:
- *           type: string
- *           enum: [draft, active, completed, terminated, expired]
- *         description: Filter by contract status
- *     responses:
- *       200:
- *         description: List of contracts retrieved successfully
- *       401:
- *         description: Unauthorized
- */
-router.get('/contracts', subcontractorsController.listContracts);
 
 /**
  * @swagger

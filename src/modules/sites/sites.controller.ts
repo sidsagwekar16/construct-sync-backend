@@ -61,9 +61,10 @@ export class SitesController {
   createSite = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
     try {
       const companyId = req.user!.companyId;
+      const userId = req.user!.id;
       const data: CreateSiteRequest = req.body;
 
-      const site = await this.service.createSite(companyId, data);
+      const site = await this.service.createSite(companyId, data, userId);
       successResponse(res, site, 'Site created successfully', 201);
     } catch (error) {
       next(error);

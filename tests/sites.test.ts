@@ -51,7 +51,23 @@ describe('Sites API Tests', () => {
         updated_at: new Date(),
       };
 
-      mockDbQuery.mockResolvedValueOnce({ rows: [mockSite] } as any);
+      const mockBudget = {
+        id: '123e4567-e89b-12d3-a456-426614174070',
+        site_id: mockSiteId,
+        company_id: mockCompanyId,
+        total_budget: 0,
+        allocated_budget: 0,
+        spent_budget: 0,
+        created_by: mockUserId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [mockSite] } as any) // Create site
+        .mockResolvedValueOnce({ rows: [mockBudget] } as any) // Create budget
+        .mockResolvedValueOnce({ rows: [] } as any); // Create default categories (multiple calls)
 
       const response = await request(app)
         .post('/api/sites')
@@ -86,7 +102,23 @@ describe('Sites API Tests', () => {
         updated_at: new Date(),
       };
 
-      mockDbQuery.mockResolvedValueOnce({ rows: [mockSite] } as any);
+      const mockBudget = {
+        id: '123e4567-e89b-12d3-a456-426614174070',
+        site_id: mockSiteId,
+        company_id: mockCompanyId,
+        total_budget: 0,
+        allocated_budget: 0,
+        spent_budget: 0,
+        created_by: mockUserId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
+      mockDbQuery
+        .mockResolvedValueOnce({ rows: [mockSite] } as any) // Create site
+        .mockResolvedValueOnce({ rows: [mockBudget] } as any) // Create budget
+        .mockResolvedValueOnce({ rows: [] } as any); // Create default categories
 
       const response = await request(app)
         .post('/api/sites')
@@ -464,9 +496,24 @@ describe('Sites API Tests', () => {
         updated_at: new Date(),
       };
 
+      const mockBudget = {
+        id: '123e4567-e89b-12d3-a456-426614174070',
+        site_id: mockSiteId,
+        company_id: mockCompanyId,
+        total_budget: 0,
+        allocated_budget: 0,
+        spent_budget: 0,
+        created_by: mockUserId,
+        deleted_at: null,
+        created_at: new Date(),
+        updated_at: new Date(),
+      };
+
       mockDbQuery
         .mockResolvedValueOnce({ rows: [mockSite] } as any) // findSiteById
         .mockResolvedValueOnce({ rows: [{ count: '0' }] } as any) // getSiteJobCount
+        .mockResolvedValueOnce({ rows: [mockBudget] } as any) // findBudgetBySiteId
+        .mockResolvedValueOnce({ rows: [{ id: mockBudget.id }] } as any) // deleteBudget
         .mockResolvedValueOnce({ rows: [{ id: mockSiteId }] } as any); // deleteSite
 
       const response = await request(app)

@@ -16,6 +16,8 @@ import tasksRoutes from './modules/tasks/tasks.routes';
 import usersRoutes from './modules/users/users.routes';
 import subcontractorsRoutes from './modules/subcontractors/subcontractors.routes';
 import budgetsRoutes from './modules/budgets/budgets.routes';
+import safetyRoutes from './modules/safety/safety.routes';
+import mobileRoutes from './modules/mobile/mobile.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -84,6 +86,10 @@ export const createApp = (): Application => {
   app.use('/api/workers', usersRoutes);
   app.use('/api/subcontractors', subcontractorsRoutes);
   app.use('/api/budgets', budgetsRoutes);
+  app.use('/api/safety', safetyRoutes);
+  
+  // Mobile API routes
+  app.use('/api/mobile', mobileRoutes);
 
   // 404 handler
   app.use(notFoundHandler);

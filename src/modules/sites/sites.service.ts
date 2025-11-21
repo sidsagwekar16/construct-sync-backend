@@ -13,12 +13,15 @@ import {
   BadRequestError,
 } from '../../types/errors';
 import { logger } from '../../utils/logger';
+import { BudgetsRepository } from '../budgets/budgets.repository';
 
 export class SitesService {
   private repository: SitesRepository;
+  private budgetsRepository: BudgetsRepository;
 
   constructor() {
     this.repository = new SitesRepository();
+    this.budgetsRepository = new BudgetsRepository();
   }
 
   /**
@@ -70,7 +73,8 @@ export class SitesService {
    */
   async createSite(
     companyId: string,
-    data: CreateSiteRequest
+    data: CreateSiteRequest,
+    userId: string
   ): Promise<SiteResponse> {
     // Validate latitude and longitude together
     if ((data.latitude && !data.longitude) || (!data.latitude && data.longitude)) {
@@ -88,6 +92,27 @@ export class SitesService {
     );
 
     logger.info(`Site created: ${site.name} (${site.id}) for company ${companyId}`);
+
+    // Automatically create a budget for the site with default categories
+    try {
+      const budget = await this.budgetsRepository.createBudget(
+        site.id,
+        companyId,
+        0, // Start with 0 budget, user can update later
+        userId
+      );
+      
+      // Create default categories
+      await this.budgetsRepository.createDefaultCategories(budget.id);
+      
+      // Update budget totals
+      await this.budgetsRepository.updateBudgetTotals(budget.id);
+      
+      logger.info(`Budget created automatically for site: ${site.name} (${site.id})`);
+    } catch (error) {
+      logger.warn(`Failed to create budget for site ${site.id}: ${error}`);
+      // Don't fail site creation if budget creation fails
+    }
 
     return this.mapSiteToResponse(site);
   }
@@ -142,6 +167,19 @@ export class SitesService {
       );
     }
 
+    // Soft-delete the associated budget first
+    try {
+      const budget = await this.budgetsRepository.findBudgetBySiteId(siteId, companyId);
+      if (budget) {
+        await this.budgetsRepository.deleteBudget(budget.id, companyId);
+        logger.info(`Budget soft-deleted for site: ${site.name} (${siteId})`);
+      }
+    } catch (error) {
+      logger.warn(`Failed to soft-delete budget for site ${siteId}: ${error}`);
+      // Continue with site deletion even if budget deletion fails
+    }
+
+    // Soft-delete the site
     const deleted = await this.repository.deleteSite(siteId, companyId);
     if (!deleted) {
       throw new NotFoundError('Site not found');
