@@ -229,5 +229,156 @@ export class MobileSitesService {
       throw error;
     }
   }
+
+  /**
+   * Upload media for a site
+   */
+  async uploadMedia(siteId: string, companyId: string, userId: string, data: any): Promise<any> {
+    try {
+      await this.verifySiteAccess(siteId, companyId);
+
+      const result = await db.query(
+        `INSERT INTO site_media (site_id, uploaded_by, media_type, media_url, thumbnail_url)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [siteId, userId, data.mediaType || 'photo', data.mediaUrl, data.thumbnailUrl || null]
+      );
+
+      const media = result.rows[0];
+      return {
+        id: media.id,
+        siteId: media.site_id,
+        uploadedBy: media.uploaded_by,
+        mediaType: media.media_type,
+        mediaUrl: media.media_url,
+        thumbnailUrl: media.thumbnail_url,
+        createdAt: media.created_at,
+      };
+    } catch (error) {
+      logger.error('Error uploading media:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete media from a site
+   */
+  async deleteMedia(siteId: string, mediaId: string, companyId: string): Promise<void> {
+    try {
+      await this.verifySiteAccess(siteId, companyId);
+
+      const checkResult = await db.query(
+        'SELECT id FROM site_media WHERE id = $1 AND site_id = $2 AND deleted_at IS NULL',
+        [mediaId, siteId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        throw new NotFoundError('Media not found');
+      }
+
+      await db.query('UPDATE site_media SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [mediaId]);
+      logger.info(`Media deleted: ${mediaId} from site ${siteId}`);
+    } catch (error) {
+      logger.error('Error deleting media:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Update a memo
+   */
+  async updateMemo(siteId: string, memoId: string, companyId: string, data: any): Promise<any> {
+    try {
+      await this.verifySiteAccess(siteId, companyId);
+
+      const checkResult = await db.query(
+        'SELECT id FROM site_memos WHERE id = $1 AND site_id = $2 AND deleted_at IS NULL',
+        [memoId, siteId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        throw new NotFoundError('Memo not found');
+      }
+
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (data.title !== undefined) {
+        updates.push(`title = $${paramIndex}`);
+        values.push(data.title);
+        paramIndex++;
+      }
+      if (data.content !== undefined) {
+        updates.push(`content = $${paramIndex}`);
+        values.push(data.content);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        throw new Error('No fields to update');
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(memoId);
+
+      const result = await db.query(
+        `UPDATE site_memos SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+
+      const memo = result.rows[0];
+      return {
+        id: memo.id,
+        siteId: memo.site_id,
+        createdBy: memo.created_by,
+        title: memo.title,
+        content: memo.content,
+        createdAt: memo.created_at,
+        updatedAt: memo.updated_at,
+      };
+    } catch (error) {
+      logger.error('Error updating memo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a memo
+   */
+  async deleteMemo(siteId: string, memoId: string, companyId: string): Promise<void> {
+    try {
+      await this.verifySiteAccess(siteId, companyId);
+
+      const checkResult = await db.query(
+        'SELECT id FROM site_memos WHERE id = $1 AND site_id = $2 AND deleted_at IS NULL',
+        [memoId, siteId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        throw new NotFoundError('Memo not found');
+      }
+
+      await db.query('UPDATE site_memos SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [memoId]);
+      logger.info(`Memo deleted: ${memoId} from site ${siteId}`);
+    } catch (error) {
+      logger.error('Error deleting memo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper to verify site access
+   */
+  private async verifySiteAccess(siteId: string, companyId: string): Promise<void> {
+    const result = await db.query(
+      'SELECT id FROM sites WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL',
+      [siteId, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Site not found');
+    }
+  }
 }
 

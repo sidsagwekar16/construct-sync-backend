@@ -79,6 +79,74 @@ export class MobileSitesController {
       next(error);
     }
   };
+
+  /**
+   * POST /mobile/sites/:id/media
+   * Upload media for a site
+   */
+  uploadMedia = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const siteId = req.params.id;
+      const companyId = req.user!.companyId;
+      const userId = req.user!.id;
+
+      const media = await this.service.uploadMedia(siteId, companyId, userId, req.body);
+      successResponse(res, media, 'Media uploaded successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /mobile/sites/:id/media/:mediaId
+   * Delete media from a site
+   */
+  deleteMedia = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const siteId = req.params.id;
+      const mediaId = req.params.mediaId;
+      const companyId = req.user!.companyId;
+
+      await this.service.deleteMedia(siteId, mediaId, companyId);
+      successResponse(res, null, 'Media deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * PATCH /mobile/sites/:id/memos/:memoId
+   * Update a memo
+   */
+  updateMemo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const siteId = req.params.id;
+      const memoId = req.params.memoId;
+      const companyId = req.user!.companyId;
+
+      const memo = await this.service.updateMemo(siteId, memoId, companyId, req.body);
+      successResponse(res, memo, 'Memo updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /mobile/sites/:id/memos/:memoId
+   * Delete a memo
+   */
+  deleteMemo = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const siteId = req.params.id;
+      const memoId = req.params.memoId;
+      const companyId = req.user!.companyId;
+
+      await this.service.deleteMemo(siteId, memoId, companyId);
+      successResponse(res, null, 'Memo deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }
 
 

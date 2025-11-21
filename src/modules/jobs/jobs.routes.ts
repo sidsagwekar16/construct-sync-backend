@@ -11,6 +11,7 @@ import {
   assignWorkersSchema,
   assignManagersSchema,
 } from './jobs.validator';
+import mediaRoutes from './media/media.routes';
 
 const router = Router();
 const jobsController = new JobsController();
@@ -528,5 +529,8 @@ router.patch('/:id/archive', jobsController.archiveJob);
  *         description: Unauthorized
  */
 router.patch('/:id/unarchive', jobsController.unarchiveJob);
+
+// Mount media routes under /:jobId/media
+router.use('/:jobId/media', mediaRoutes);
 
 export default router;

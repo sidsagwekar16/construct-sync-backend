@@ -10,6 +10,8 @@ import {
   listSitesQuerySchema,
   siteIdSchema,
 } from './sites.validator';
+import mediaRoutes from './media/media.routes';
+import memosRoutes from './memos/memos.routes';
 
 const router = Router();
 const sitesController = new SitesController();
@@ -262,5 +264,9 @@ router.patch('/:id', validateRequest(updateSiteSchema), sitesController.updateSi
  *         description: Unauthorized
  */
 router.delete('/:id', sitesController.deleteSite);
+
+// Mount media and memos routes under /:siteId
+router.use('/:siteId/media', mediaRoutes);
+router.use('/:siteId/memos', memosRoutes);
 
 export default router;

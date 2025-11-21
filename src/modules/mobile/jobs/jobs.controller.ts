@@ -86,6 +86,40 @@ export class MobileJobsController {
   };
 
   /**
+   * PATCH /mobile/jobs/:id/tasks/:taskId
+   * Update a task for a job
+   */
+  updateTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const taskId = req.params.taskId;
+      const companyId = req.user!.companyId;
+
+      const task = await this.service.updateTask(jobId, taskId, companyId, req.body);
+      successResponse(res, task, 'Task updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /mobile/jobs/:id/tasks/:taskId
+   * Delete a task from a job
+   */
+  deleteTask = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const taskId = req.params.taskId;
+      const companyId = req.user!.companyId;
+
+      await this.service.deleteTask(jobId, taskId, companyId);
+      successResponse(res, null, 'Task deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
    * GET /mobile/jobs/:id/workers
    * Get workers assigned to a job
    */
@@ -96,6 +130,106 @@ export class MobileJobsController {
 
       const workers = await this.service.getJobWorkers(jobId, companyId);
       successResponse(res, workers);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /mobile/jobs/:id/media/photos
+   * Upload a photo for a job
+   */
+  uploadPhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+      const userId = req.user!.id;
+
+      const photo = await this.service.uploadPhoto(jobId, companyId, userId, req.body);
+      successResponse(res, photo, 'Photo uploaded successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /mobile/jobs/:id/media/photos
+   * Get all photos for a job
+   */
+  getJobPhotos = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+
+      const photos = await this.service.getJobPhotos(jobId, companyId);
+      successResponse(res, photos);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /mobile/jobs/:id/media/photos/:photoId
+   * Delete a photo from a job
+   */
+  deletePhoto = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const photoId = req.params.photoId;
+      const companyId = req.user!.companyId;
+
+      await this.service.deletePhoto(jobId, photoId, companyId);
+      successResponse(res, null, 'Photo deleted successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * POST /mobile/jobs/:id/media/documents
+   * Upload a document for a job
+   */
+  uploadDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+      const userId = req.user!.id;
+
+      const document = await this.service.uploadDocument(jobId, companyId, userId, req.body);
+      successResponse(res, document, 'Document uploaded successfully', 201);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * GET /mobile/jobs/:id/media/documents
+   * Get all documents for a job
+   */
+  getJobDocuments = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const companyId = req.user!.companyId;
+
+      const documents = await this.service.getJobDocuments(jobId, companyId);
+      successResponse(res, documents);
+    } catch (error) {
+      next(error);
+    }
+  };
+
+  /**
+   * DELETE /mobile/jobs/:id/media/documents/:documentId
+   * Delete a document from a job
+   */
+  deleteDocument = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const jobId = req.params.id;
+      const documentId = req.params.documentId;
+      const companyId = req.user!.companyId;
+
+      await this.service.deleteDocument(jobId, documentId, companyId);
+      successResponse(res, null, 'Document deleted successfully');
     } catch (error) {
       next(error);
     }

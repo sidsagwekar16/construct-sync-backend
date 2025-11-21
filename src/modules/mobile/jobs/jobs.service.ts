@@ -315,6 +315,136 @@ export class MobileJobsService {
   }
 
   /**
+   * Update a task for a job
+   */
+  async updateTask(jobId: string, taskId: string, companyId: string, taskData: any): Promise<any> {
+    try {
+      // Verify job exists and belongs to company
+      const jobCheck = await db.query(
+        'SELECT id FROM jobs WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        [jobId, companyId]
+      );
+
+      if (jobCheck.rows.length === 0) {
+        throw new NotFoundError('Job not found');
+      }
+
+      // Verify task exists and belongs to this job
+      const taskCheck = await db.query(
+        'SELECT id FROM job_tasks WHERE id = $1 AND job_id = $2 AND deleted_at IS NULL',
+        [taskId, jobId]
+      );
+
+      if (taskCheck.rows.length === 0) {
+        throw new NotFoundError('Task not found');
+      }
+
+      // Build update query dynamically
+      const updates: string[] = [];
+      const values: any[] = [];
+      let paramIndex = 1;
+
+      if (taskData.name !== undefined) {
+        updates.push(`title = $${paramIndex}`);
+        values.push(taskData.name);
+        paramIndex++;
+      }
+      if (taskData.description !== undefined) {
+        updates.push(`description = $${paramIndex}`);
+        values.push(taskData.description);
+        paramIndex++;
+      }
+      if (taskData.status !== undefined) {
+        updates.push(`status = $${paramIndex}`);
+        values.push(taskData.status);
+        paramIndex++;
+      }
+      if (taskData.priority !== undefined) {
+        updates.push(`priority = $${paramIndex}`);
+        values.push(taskData.priority);
+        paramIndex++;
+      }
+      if (taskData.assignedTo !== undefined) {
+        updates.push(`assigned_to = $${paramIndex}`);
+        values.push(taskData.assignedTo);
+        paramIndex++;
+      }
+      if (taskData.dueDate !== undefined) {
+        updates.push(`due_date = $${paramIndex}`);
+        values.push(taskData.dueDate);
+        paramIndex++;
+      }
+
+      if (updates.length === 0) {
+        throw new Error('No fields to update');
+      }
+
+      updates.push(`updated_at = CURRENT_TIMESTAMP`);
+      values.push(taskId);
+
+      const result = await db.query(
+        `UPDATE job_tasks SET ${updates.join(', ')} WHERE id = $${paramIndex} RETURNING *`,
+        values
+      );
+
+      const task = result.rows[0];
+      return {
+        id: task.id,
+        name: task.title,
+        title: task.title,
+        description: task.description,
+        status: task.status,
+        priority: task.priority,
+        assignedTo: task.assigned_to,
+        dueDate: task.due_date,
+        createdAt: task.created_at,
+        updatedAt: task.updated_at,
+      };
+    } catch (error) {
+      logger.error('Error updating task:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a task (soft delete)
+   */
+  async deleteTask(jobId: string, taskId: string, companyId: string): Promise<void> {
+    try {
+      // Verify job exists and belongs to company
+      const jobCheck = await db.query(
+        'SELECT id FROM jobs WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL',
+        [jobId, companyId]
+      );
+
+      if (jobCheck.rows.length === 0) {
+        throw new NotFoundError('Job not found');
+      }
+
+      // Verify task exists and belongs to this job
+      const taskCheck = await db.query(
+        'SELECT id FROM job_tasks WHERE id = $1 AND job_id = $2 AND deleted_at IS NULL',
+        [taskId, jobId]
+      );
+
+      if (taskCheck.rows.length === 0) {
+        throw new NotFoundError('Task not found');
+      }
+
+      // Soft delete the task
+      await db.query(
+        'UPDATE job_tasks SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1',
+        [taskId]
+      );
+
+      logger.info(`Task deleted: ${taskId} from job ${jobId}`);
+    } catch (error) {
+      logger.error('Error deleting task:', error);
+      throw error;
+    }
+  }
+
+  /**
    * Get workers assigned to a job
    */
   async getJobWorkers(jobId: string, companyId: string): Promise<any[]> {
@@ -355,6 +485,196 @@ export class MobileJobsService {
     } catch (error) {
       logger.error('Error getting job workers:', error);
       throw error;
+    }
+  }
+
+  /**
+   * Upload a photo for a job
+   */
+  async uploadPhoto(jobId: string, companyId: string, userId: string, data: any): Promise<any> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const result = await db.query(
+        `INSERT INTO job_photos (job_id, uploaded_by, photo_url, thumbnail_url, caption)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [jobId, userId, data.photoUrl, data.thumbnailUrl || null, data.caption || null]
+      );
+
+      const photo = result.rows[0];
+      return {
+        id: photo.id,
+        jobId: photo.job_id,
+        uploadedBy: photo.uploaded_by,
+        photoUrl: photo.photo_url,
+        thumbnailUrl: photo.thumbnail_url,
+        caption: photo.caption,
+        createdAt: photo.created_at,
+      };
+    } catch (error) {
+      logger.error('Error uploading photo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all photos for a job
+   */
+  async getJobPhotos(jobId: string, companyId: string): Promise<any[]> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const result = await db.query(
+        `SELECT 
+          p.*,
+          u.first_name || ' ' || u.last_name as uploaded_by_name
+         FROM job_photos p
+         LEFT JOIN users u ON p.uploaded_by = u.id
+         WHERE p.job_id = $1 AND p.deleted_at IS NULL
+         ORDER BY p.created_at DESC`,
+        [jobId]
+      );
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        jobId: row.job_id,
+        uploadedBy: row.uploaded_by,
+        uploadedByName: row.uploaded_by_name,
+        photoUrl: row.photo_url,
+        thumbnailUrl: row.thumbnail_url,
+        caption: row.caption,
+        createdAt: row.created_at,
+      }));
+    } catch (error) {
+      logger.error('Error getting job photos:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a photo from a job
+   */
+  async deletePhoto(jobId: string, photoId: string, companyId: string): Promise<void> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const checkResult = await db.query(
+        'SELECT id FROM job_photos WHERE id = $1 AND job_id = $2 AND deleted_at IS NULL',
+        [photoId, jobId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        throw new NotFoundError('Photo not found');
+      }
+
+      await db.query('UPDATE job_photos SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [photoId]);
+      logger.info(`Photo deleted: ${photoId} from job ${jobId}`);
+    } catch (error) {
+      logger.error('Error deleting photo:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Upload a document for a job
+   */
+  async uploadDocument(jobId: string, companyId: string, userId: string, data: any): Promise<any> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const result = await db.query(
+        `INSERT INTO job_documents (job_id, uploaded_by, document_name, document_url, document_type)
+         VALUES ($1, $2, $3, $4, $5)
+         RETURNING *`,
+        [jobId, userId, data.documentName, data.documentUrl, data.documentType || null]
+      );
+
+      const document = result.rows[0];
+      return {
+        id: document.id,
+        jobId: document.job_id,
+        uploadedBy: document.uploaded_by,
+        documentName: document.document_name,
+        documentUrl: document.document_url,
+        documentType: document.document_type,
+        createdAt: document.created_at,
+      };
+    } catch (error) {
+      logger.error('Error uploading document:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Get all documents for a job
+   */
+  async getJobDocuments(jobId: string, companyId: string): Promise<any[]> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const result = await db.query(
+        `SELECT 
+          d.*,
+          u.first_name || ' ' || u.last_name as uploaded_by_name
+         FROM job_documents d
+         LEFT JOIN users u ON d.uploaded_by = u.id
+         WHERE d.job_id = $1 AND d.deleted_at IS NULL
+         ORDER BY d.created_at DESC`,
+        [jobId]
+      );
+
+      return result.rows.map((row: any) => ({
+        id: row.id,
+        jobId: row.job_id,
+        uploadedBy: row.uploaded_by,
+        uploadedByName: row.uploaded_by_name,
+        documentName: row.document_name,
+        documentUrl: row.document_url,
+        documentType: row.document_type,
+        createdAt: row.created_at,
+      }));
+    } catch (error) {
+      logger.error('Error getting job documents:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Delete a document from a job
+   */
+  async deleteDocument(jobId: string, documentId: string, companyId: string): Promise<void> {
+    try {
+      await this.verifyJobAccess(jobId, companyId);
+
+      const checkResult = await db.query(
+        'SELECT id FROM job_documents WHERE id = $1 AND job_id = $2 AND deleted_at IS NULL',
+        [documentId, jobId]
+      );
+
+      if (checkResult.rows.length === 0) {
+        throw new NotFoundError('Document not found');
+      }
+
+      await db.query('UPDATE job_documents SET deleted_at = CURRENT_TIMESTAMP WHERE id = $1', [documentId]);
+      logger.info(`Document deleted: ${documentId} from job ${jobId}`);
+    } catch (error) {
+      logger.error('Error deleting document:', error);
+      throw error;
+    }
+  }
+
+  /**
+   * Helper method to verify job access
+   */
+  private async verifyJobAccess(jobId: string, companyId: string): Promise<void> {
+    const result = await db.query(
+      'SELECT id FROM jobs WHERE id = $1 AND company_id = $2 AND deleted_at IS NULL',
+      [jobId, companyId]
+    );
+
+    if (result.rows.length === 0) {
+      throw new NotFoundError('Job not found');
     }
   }
 }
