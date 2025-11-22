@@ -8,7 +8,7 @@ class Database {
   constructor() {
     this.pool = new Pool({
       connectionString: env.database.url,
-      ssl: {
+      ssl: env.database.url.includes('localhost') ? false : {
         rejectUnauthorized: false, // For Neon DB
       },
       max: 20,
