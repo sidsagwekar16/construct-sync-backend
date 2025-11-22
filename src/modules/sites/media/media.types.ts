@@ -28,3 +28,5 @@ export interface UploadMediaRequest {
   mediaType?: 'photo' | 'video' | 'document' | 'audio';
 }
 
+
+

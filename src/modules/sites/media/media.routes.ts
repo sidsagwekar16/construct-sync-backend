@@ -107,3 +107,5 @@ router.delete('/:mediaId', validateRequest(mediaIdSchema), mediaController.delet
 
 export default router;
 
+
+

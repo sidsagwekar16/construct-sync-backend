@@ -63,3 +63,5 @@ export interface UpdateMobileSafetyIncidentRequest {
   investigationNotes?: string;
 }
 
+
+
