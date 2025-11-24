@@ -4,8 +4,8 @@ import { z } from 'zod';
 
 export const uploadPhotoSchema = z.object({
   body: z.object({
-    photoUrl: z.string().url('Invalid photo URL'),
-    thumbnailUrl: z.string().url('Invalid thumbnail URL').optional(),
+    photoUrl: z.string().min(1, 'Photo URL is required'), // Accept data URLs or regular URLs
+    thumbnailUrl: z.string().optional(),
     caption: z.string().max(500, 'Caption must be 500 characters or less').optional(),
   }),
 });
@@ -13,7 +13,7 @@ export const uploadPhotoSchema = z.object({
 export const uploadDocumentSchema = z.object({
   body: z.object({
     documentName: z.string().min(1, 'Document name is required').max(255, 'Document name must be 255 characters or less'),
-    documentUrl: z.string().url('Invalid document URL'),
+    documentUrl: z.string().min(1, 'Document URL is required'), // Accept data URLs or regular URLs
     documentType: z.enum(['blueprint', 'specification', 'contract', 'invoice', 'permit', 'inspection_report', 'safety_report', 'photo', 'video', 'other']).optional(),
   }),
 });
