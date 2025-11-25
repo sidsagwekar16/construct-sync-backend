@@ -8,6 +8,8 @@ import { z } from 'zod';
 export const checkInSchema = z.object({
   job_id: z.string().uuid('Invalid job ID'),
   notes: z.string().max(1000, 'Notes must be less than 1000 characters').optional(),
+  latitude: z.number().min(-90, 'Latitude must be between -90 and 90').max(90, 'Latitude must be between -90 and 90'),
+  longitude: z.number().min(-180, 'Longitude must be between -180 and 180').max(180, 'Longitude must be between -180 and 180'),
 });
 
 /**

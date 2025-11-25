@@ -82,6 +82,29 @@ export class CheckInsService {
       throw new BadRequestError(message);
     }
 
+    // Geofencing validation - check if user is within site radius
+    if (job.site_id) {
+      const sitesRepository = new (await import('../sites/sites.repository')).SitesRepository();
+      const site = await sitesRepository.findSiteById(job.site_id, companyId);
+      
+      if (site && site.latitude && site.longitude && site.radius) {
+        const distance = this.calculateDistance(
+          data.latitude,
+          data.longitude,
+          site.latitude,
+          site.longitude
+        );
+        
+        if (distance > site.radius) {
+          throw new BadRequestError(
+            `You are too far from the job site. You must be within ${site.radius}m of the site location to check in. Current distance: ${Math.round(distance)}m`
+          );
+        }
+        
+        logger.info(`User ${userId} location verified for job ${data.job_id}. Distance: ${Math.round(distance)}m (radius: ${site.radius}m)`);
+      }
+    }
+
     // Get user's hourly rate from their profile
     const usersRepository = new (await import('../users/users.repository')).UsersRepository();
     const user = await usersRepository.findUserById(userId, companyId);
@@ -234,6 +257,30 @@ export class CheckInsService {
     endDate: Date
   ): Promise<{ totalHours: number; totalAmount: number }> {
     return await this.repository.getTotalBillableHours(userId, startDate, endDate);
+  }
+
+  /**
+   * Calculate distance between two coordinates using Haversine formula
+   * Returns distance in meters
+   */
+  private calculateDistance(
+    lat1: number,
+    lon1: number,
+    lat2: number,
+    lon2: number
+  ): number {
+    const R = 6371e3; // Earth's radius in meters
+    const φ1 = (lat1 * Math.PI) / 180;
+    const φ2 = (lat2 * Math.PI) / 180;
+    const Δφ = ((lat2 - lat1) * Math.PI) / 180;
+    const Δλ = ((lon2 - lon1) * Math.PI) / 180;
+
+    const a =
+      Math.sin(Δφ / 2) * Math.sin(Δφ / 2) +
+      Math.cos(φ1) * Math.cos(φ2) * Math.sin(Δλ / 2) * Math.sin(Δλ / 2);
+    const c = 2 * Math.atan2(Math.sqrt(a), Math.sqrt(1 - a));
+
+    return R * c; // Distance in meters
   }
 
   /**

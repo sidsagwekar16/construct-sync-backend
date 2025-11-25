@@ -24,6 +24,8 @@ export interface CheckInLog {
 export interface CheckInRequest {
   job_id: string;
   notes?: string;
+  latitude: number;
+  longitude: number;
 }
 
 /**
