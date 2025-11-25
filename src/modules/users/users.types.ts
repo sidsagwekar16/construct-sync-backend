@@ -10,6 +10,7 @@ export interface User {
   first_name: string | null;
   last_name: string | null;
   role: UserRole;
+  hourly_rate: number | null;
   is_active: boolean;
   deleted_at: Date | null;
   created_at: Date;
@@ -23,6 +24,7 @@ export interface WorkerResponse {
   firstName: string | null;
   lastName: string | null;
   role: UserRole;
+  hourlyRate: number | null;
   isActive: boolean;
   createdAt: Date;
   updatedAt: Date;
@@ -34,6 +36,7 @@ export interface CreateWorkerRequest {
   firstName: string;
   lastName: string;
   role?: UserRole;
+  hourlyRate?: number;
 }
 
 // Response returned when a worker is first created – includes a temporary password
@@ -47,6 +50,7 @@ export interface UpdateWorkerRequest {
   firstName?: string | null;
   lastName?: string | null;
   role?: UserRole;
+  hourlyRate?: number | null;
   isActive?: boolean;
 }
 

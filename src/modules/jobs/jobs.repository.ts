@@ -523,4 +523,22 @@ export class JobsRepository {
       email: row.email,
     };
   }
+
+  /**
+   * Check if a user is assigned to a job (as worker or manager)
+   */
+  async isUserAssignedToJob(jobId: string, userId: string): Promise<boolean> {
+    const query = `
+      SELECT 1 FROM (
+        SELECT user_id FROM job_workers WHERE job_id = $1 AND user_id = $2
+        UNION
+        SELECT user_id FROM job_managers WHERE job_id = $1 AND user_id = $2
+        UNION
+        SELECT assigned_to FROM jobs WHERE id = $1 AND assigned_to = $2 AND deleted_at IS NULL
+      ) AS assigned
+      LIMIT 1
+    `;
+    const result = await db.query(query, [jobId, userId]);
+    return result.rows.length > 0;
+  }
 }
