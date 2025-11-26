@@ -14,9 +14,21 @@ export class CheckInsRepository {
     notes?: string
   ): Promise<CheckInLog> {
     const query = `
-      INSERT INTO check_in_logs (user_id, job_id, hourly_rate, notes)
-      VALUES ($1, $2, $3, $4)
-      RETURNING *
+      INSERT INTO check_in_logs (user_id, job_id, hourly_rate, notes, check_in_time)
+      VALUES ($1, $2, $3, $4, NOW() AT TIME ZONE 'UTC')
+      RETURNING 
+        id,
+        user_id,
+        job_id,
+        check_in_time AT TIME ZONE 'UTC' as check_in_time,
+        check_out_time,
+        duration_hours,
+        hourly_rate,
+        billable_amount,
+        notes,
+        created_at AT TIME ZONE 'UTC' as created_at,
+        updated_at AT TIME ZONE 'UTC' as updated_at,
+        deleted_at
     `;
     const result = await db.query<CheckInLog>(query, [userId, jobId, hourlyRate, notes || null]);
     return result.rows[0];
@@ -53,7 +65,20 @@ export class CheckInsRepository {
    */
   async findActiveCheckIn(userId: string): Promise<CheckInLog | null> {
     const query = `
-      SELECT * FROM check_in_logs
+      SELECT 
+        id,
+        user_id,
+        job_id,
+        check_in_time AT TIME ZONE 'UTC' as check_in_time,
+        check_out_time AT TIME ZONE 'UTC' as check_out_time,
+        duration_hours,
+        hourly_rate,
+        billable_amount,
+        notes,
+        created_at AT TIME ZONE 'UTC' as created_at,
+        updated_at AT TIME ZONE 'UTC' as updated_at,
+        deleted_at
+      FROM check_in_logs
       WHERE user_id = $1 AND check_out_time IS NULL AND deleted_at IS NULL
       ORDER BY check_in_time DESC
       LIMIT 1
@@ -100,11 +125,21 @@ export class CheckInsRepository {
     activeOnly?: boolean,
     limit: number = 50,
     offset: number = 0
-  ): Promise<{ logs: CheckInLog[]; total: number }> {
+  ): Promise<{ logs: any[]; total: number }> {
     let query = `
-      SELECT cil.* 
+      SELECT 
+        cil.*,
+        u.first_name,
+        u.last_name,
+        u.email,
+        u.role,
+        j.name as job_name,
+        j.job_number,
+        s.address as site_address
       FROM check_in_logs cil
       INNER JOIN users u ON cil.user_id = u.id
+      LEFT JOIN jobs j ON cil.job_id = j.id
+      LEFT JOIN sites s ON j.site_id = s.id
       WHERE u.company_id = $1 AND cil.deleted_at IS NULL
     `;
     const params: any[] = [companyId];
@@ -142,10 +177,46 @@ export class CheckInsRepository {
       query += ` AND cil.check_out_time IS NULL`;
     }
 
-    // Get total count
-    const countQuery = query.replace('SELECT cil.*', 'SELECT COUNT(*)');
-    const countResult = await db.query<{ count: string }>(countQuery, params.slice(0, paramIndex - 1));
-    const total = parseInt(countResult.rows[0].count, 10);
+    // Get total count - build count query from scratch to avoid replace issues
+    let countQuery = `
+      SELECT COUNT(*) as count
+      FROM check_in_logs cil
+      INNER JOIN users u ON cil.user_id = u.id
+      LEFT JOIN jobs j ON cil.job_id = j.id
+      LEFT JOIN sites s ON j.site_id = s.id
+      WHERE u.company_id = $1 AND cil.deleted_at IS NULL
+    `;
+    
+    // Apply the same filters to count query
+    let countParamIndex = 2;
+    const countParams: any[] = [companyId];
+    
+    if (userId) {
+      countQuery += ` AND cil.user_id = $${countParamIndex}`;
+      countParams.push(userId);
+      countParamIndex++;
+    }
+    if (jobId) {
+      countQuery += ` AND cil.job_id = $${countParamIndex}`;
+      countParams.push(jobId);
+      countParamIndex++;
+    }
+    if (startDate) {
+      countQuery += ` AND cil.check_in_time >= $${countParamIndex}`;
+      countParams.push(startDate);
+      countParamIndex++;
+    }
+    if (endDate) {
+      countQuery += ` AND cil.check_in_time <= $${countParamIndex}`;
+      countParams.push(endDate);
+      countParamIndex++;
+    }
+    if (activeOnly) {
+      countQuery += ` AND cil.check_out_time IS NULL`;
+    }
+
+    const countResult = await db.query<{ count: string }>(countQuery, countParams);
+    const total = parseInt(countResult.rows[0]?.count || '0', 10);
 
     // Add ordering and pagination
     query += ` ORDER BY cil.check_in_time DESC LIMIT $${paramIndex} OFFSET $${paramIndex + 1}`;

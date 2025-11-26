@@ -208,7 +208,7 @@ export class CheckInsService {
   async listCheckInLogs(
     companyId: string,
     query: CheckInLogsQuery
-  ): Promise<{ logs: CheckInLogResponse[]; total: number; page: number; limit: number }> {
+  ): Promise<{ logs: any[]; total: number; page: number; limit: number }> {
     const page = query.page || 1;
     const limit = query.limit || 50;
     const offset = (page - 1) * limit;
@@ -228,17 +228,22 @@ export class CheckInsService {
       offset
     );
 
-    // Map logs to response with job details
-    const logsWithDetails = await Promise.all(
-      logs.map(async (log) => {
-        const job = await this.jobsRepository.findJobById(log.job_id, companyId);
-        return this.mapCheckInLogToResponse(
+    // Map logs to response with user and job details already included from repository
+    const logsWithDetails = logs.map((log) => {
+      const userName = log.first_name && log.last_name 
+        ? `${log.first_name} ${log.last_name}`.trim()
+        : log.email;
+      
+      return {
+        ...this.mapCheckInLogToResponse(
           log,
-          job?.name || undefined,
-          job?.job_number || undefined
-        );
-      })
-    );
+          log.job_name || undefined,
+          log.job_number || undefined
+        ),
+        worker_name: userName,
+        site_address: log.site_address || undefined,
+      };
+    });
 
     return {
       logs: logsWithDetails,
