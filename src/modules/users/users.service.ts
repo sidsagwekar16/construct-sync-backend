@@ -125,7 +125,8 @@ export class UsersService {
       passwordHash,
       data.firstName,
       data.lastName,
-      role
+      role,
+      data.hourlyRate
     );
 
     logger.info(`Worker created: ${user.email} (${user.id}) for company ${companyId}`);
@@ -210,6 +211,7 @@ export class UsersService {
       firstName: user.first_name,
       lastName: user.last_name,
       role: user.role,
+      hourlyRate: user.hourly_rate ? parseFloat(user.hourly_rate) : null,
       isActive: user.is_active,
       createdAt: user.created_at,
       updatedAt: user.updated_at,

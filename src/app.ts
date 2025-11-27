@@ -18,6 +18,7 @@ import subcontractorsRoutes from './modules/subcontractors/subcontractors.routes
 import budgetsRoutes from './modules/budgets/budgets.routes';
 import safetyRoutes from './modules/safety/safety.routes';
 import mobileRoutes from './modules/mobile/mobile.routes';
+import checkInsRoutes from './modules/check-ins/check-ins.routes';
 
 export const createApp = (): Application => {
   const app = express();
@@ -87,6 +88,7 @@ export const createApp = (): Application => {
   app.use('/api/subcontractors', subcontractorsRoutes);
   app.use('/api/budgets', budgetsRoutes);
   app.use('/api/safety', safetyRoutes);
+  app.use('/api/check-ins', checkInsRoutes);
   
   // Mobile API routes
   app.use('/api/mobile', mobileRoutes);

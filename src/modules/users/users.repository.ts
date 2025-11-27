@@ -98,11 +98,12 @@ export class UsersRepository {
     passwordHash: string,
     firstName: string,
     lastName: string,
-    role: UserRole
+    role: UserRole,
+    hourlyRate?: number | null
   ): Promise<User> {
     const query = `
-      INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, is_active)
-      VALUES ($1, $2, $3, $4, $5, $6, true)
+      INSERT INTO users (company_id, email, password_hash, first_name, last_name, role, hourly_rate, is_active)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, true)
       RETURNING *
     `;
     const result = await db.query<User>(query, [
@@ -112,6 +113,7 @@ export class UsersRepository {
       firstName,
       lastName,
       role,
+      hourlyRate || null,
     ]);
     return result.rows[0];
   }

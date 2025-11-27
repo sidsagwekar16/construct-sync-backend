@@ -16,6 +16,7 @@ export const createWorkerSchema = z.object({
   firstName: z.string().min(1, 'First name is required').max(100),
   lastName: z.string().min(1, 'Last name is required').max(100),
   role: z.nativeEnum(UserRole).optional(),
+  hourlyRate: z.number().min(0, 'Hourly rate must be positive').optional(),
 });
 
 export const updateWorkerSchema = z.object({
@@ -23,6 +24,7 @@ export const updateWorkerSchema = z.object({
   firstName: z.string().min(1).max(100).optional().nullable(),
   lastName: z.string().min(1).max(100).optional().nullable(),
   role: z.nativeEnum(UserRole).optional(),
+  hourlyRate: z.number().min(0, 'Hourly rate must be positive').optional().nullable(),
   isActive: z.boolean().optional(),
 });
 
