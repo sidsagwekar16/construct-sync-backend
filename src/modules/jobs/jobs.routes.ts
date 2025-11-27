@@ -12,9 +12,12 @@ import {
   assignManagersSchema,
 } from './jobs.validator';
 import mediaRoutes from './media/media.routes';
+import { DiaryController } from './diary/diary.controller';
+import { createDiarySchema } from './diary/diary.types';
 
 const router = Router();
 const jobsController = new JobsController();
+const diaryController = new DiaryController();
 
 // All routes require authentication
 router.use(authenticateToken);
@@ -529,6 +532,114 @@ router.patch('/:id/archive', jobsController.archiveJob);
  *         description: Unauthorized
  */
 router.patch('/:id/unarchive', jobsController.unarchiveJob);
+
+// Diary routes
+/**
+ * @swagger
+ * /api/jobs/{jobId}/diary:
+ *   post:
+ *     tags:
+ *       - Jobs
+ *     summary: Create a diary entry for a job
+ *     description: Add a new diary entry to a job
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             required:
+ *               - content
+ *             properties:
+ *               content:
+ *                 type: string
+ *                 minLength: 1
+ *                 maxLength: 5000
+ *                 example: Completed foundation work today. Weather conditions were good.
+ *     responses:
+ *       201:
+ *         description: Diary entry created successfully
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.post('/:jobId/diary', validateRequest(createDiarySchema), diaryController.createDiaryEntry);
+
+/**
+ * @swagger
+ * /api/jobs/{jobId}/diary:
+ *   get:
+ *     tags:
+ *       - Jobs
+ *     summary: Get all diary entries for a job
+ *     description: Retrieve all diary entries for a specific job
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *     responses:
+ *       200:
+ *         description: Diary entries retrieved successfully
+ *       404:
+ *         description: Job not found
+ *       401:
+ *         description: Unauthorized
+ */
+router.get('/:jobId/diary', diaryController.getDiaryEntries);
+
+/**
+ * @swagger
+ * /api/jobs/{jobId}/diary/{diaryId}:
+ *   delete:
+ *     tags:
+ *       - Jobs
+ *     summary: Delete a diary entry
+ *     description: Delete a specific diary entry (only by the creator)
+ *     security:
+ *       - bearerAuth: []
+ *     parameters:
+ *       - in: path
+ *         name: jobId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Job ID
+ *       - in: path
+ *         name: diaryId
+ *         required: true
+ *         schema:
+ *           type: string
+ *           format: uuid
+ *         description: Diary entry ID
+ *     responses:
+ *       200:
+ *         description: Diary entry deleted successfully
+ *       404:
+ *         description: Diary entry not found
+ *       403:
+ *         description: Forbidden - can only delete own entries
+ *       401:
+ *         description: Unauthorized
+ */
+router.delete('/:jobId/diary/:diaryId', diaryController.deleteDiaryEntry);
 
 // Mount media routes under /:jobId/media
 router.use('/:jobId/media', mediaRoutes);

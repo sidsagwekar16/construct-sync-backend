@@ -12,13 +12,13 @@ async function runMigration() {
     await client.connect();
     console.log('✅ Connected to database');
 
-    const sql = fs.readFileSync(path.join(__dirname, 'check_in_logs_migration.sql'), 'utf8');
-    console.log('📄 Running migration...');
+    const sql = fs.readFileSync(path.join(__dirname, 'migrations', 'add_job_diaries_table.sql'), 'utf8');
+    console.log('📄 Running migration: add_job_diaries_table.sql');
     
     await client.query(sql);
     console.log('✅ Migration completed successfully!');
     console.log('');
-    console.log('Created table: check_in_logs');
+    console.log('Created table: job_diaries');
     console.log('Created indexes for performance');
     
   } catch (err) {
