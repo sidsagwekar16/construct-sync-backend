@@ -21,8 +21,16 @@ export class JobsRepository {
     offset: number = 0
   ): Promise<{ jobs: Job[]; total: number }> {
     let query = `
-      SELECT * FROM jobs 
-      WHERE company_id = $1 AND deleted_at IS NULL
+      SELECT 
+        jobs.*,
+        sites.latitude AS latitude,
+        sites.longitude AS longitude,
+        sites.radius AS radius,
+        sites.address AS site_address,
+        sites.id AS site_id
+      FROM jobs 
+      LEFT JOIN sites ON jobs.site_id = sites.id
+      WHERE jobs.company_id = $1 AND jobs.deleted_at IS NULL
     `;
     const params: any[] = [companyId];
     let paramIndex = 2;
@@ -70,7 +78,7 @@ export class JobsRepository {
     }
 
     // Get total count
-    const countQuery = query.replace('SELECT *', 'SELECT COUNT(*)');
+    const countQuery = query.replace(/SELECT[\s\S]*?FROM jobs/, 'SELECT COUNT(*) FROM jobs');
     const countResult = await db.query<{ count: string }>(countQuery, params.slice(0, paramIndex - 1));
     const total = parseInt(countResult.rows[0].count, 10);
 

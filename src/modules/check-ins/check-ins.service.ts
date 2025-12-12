@@ -88,20 +88,32 @@ export class CheckInsService {
       const site = await sitesRepository.findSiteById(job.site_id, companyId);
       
       if (site && site.latitude && site.longitude && site.radius) {
+        // Log coordinates for debugging
+        logger.info(`Geofence check - User coords: [${data.latitude}, ${data.longitude}], Site coords: [${site.latitude}, ${site.longitude}], Site radius: ${site.radius}m${data.accuracy !== undefined ? `, GPS accuracy: ${data.accuracy}m` : ''}`);
+        
         const distance = this.calculateDistance(
           data.latitude,
           data.longitude,
           site.latitude,
           site.longitude
         );
+        const accuracy = data.accuracy ?? null;
+        const BUFFER_METERS = 25; // small grace to offset rounding
+        const allowedRadius = site.radius + BUFFER_METERS;
+        const effectiveDistance = accuracy ? Math.max(distance - accuracy, 0) : distance;
+
+        logger.info(`Calculated distance: ${distance}m (rounded: ${Math.round(distance)}m)${accuracy !== null ? `, accuracy: ${accuracy}m, effective: ${Math.round(effectiveDistance)}m` : ''}`);
         
-        if (distance > site.radius) {
-          throw new BadRequestError(
-            `You are too far from the job site. You must be within ${site.radius}m of the site location to check in. Current distance: ${Math.round(distance)}m`
-          );
+        if (effectiveDistance > allowedRadius) {
+          logger.error(`Geofence violation - User: [${data.latitude}, ${data.longitude}], Site: [${site.latitude}, ${site.longitude}], Distance: ${Math.round(distance)}m, Accuracy: ${accuracy ?? 'n/a'}m, Allowed: ${site.radius}m`);
+          const baseMsg = `You are too far from the job site. You must be within ${site.radius}m of the site location to check in. Current distance: ${Math.round(distance)}m`;
+          const accuracyHint = accuracy && accuracy > site.radius
+            ? ` GPS accuracy is about ${Math.round(accuracy)}m. Try improving GPS (open Maps, wait 30s, or move outdoors) and retry.`
+            : '';
+          throw new BadRequestError(baseMsg + accuracyHint);
         }
         
-        logger.info(`User ${userId} location verified for job ${data.job_id}. Distance: ${Math.round(distance)}m (radius: ${site.radius}m)`);
+        logger.info(`User ${userId} location verified for job ${data.job_id}. Distance: ${Math.round(distance)}m (radius: ${site.radius}m)${accuracy !== null ? `, accuracy: ${Math.round(accuracy)}m, effective: ${Math.round(effectiveDistance)}m` : ''}`);
       }
     }
 
@@ -185,12 +197,12 @@ export class CheckInsService {
     const offset = (page - 1) * limit;
     const { logs, total } = await this.repository.getUserCheckInHistory(userId, limit, offset);
 
-    // Map logs to response without job details to avoid query issues
+    // Map logs to response with job details from joined query
     const logsWithDetails = logs.map((log) => {
       return this.mapCheckInLogToResponse(
         log,
-        undefined,
-        undefined
+        log.job_name,
+        log.job_number
       );
     });
 
