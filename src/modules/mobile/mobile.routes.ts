@@ -7,6 +7,7 @@ import sitesRoutes from './sites/sites.routes';
 import safetyRoutes from './safety/safety.routes';
 import workersRoutes from './workers/workers.routes';
 import workerRoutes from './worker/worker.routes';
+import weatherRoutes from '../weather/weather.routes';
 
 const router = Router();
 
@@ -35,6 +36,9 @@ router.use('/safety', safetyRoutes);
 
 // Admin/Manager Workers APIs
 router.use('/workers', workersRoutes);
+
+// Weather APIs
+router.use('/weather', weatherRoutes);
 
 export default router;
 

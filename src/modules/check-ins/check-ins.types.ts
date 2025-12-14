@@ -26,6 +26,7 @@ export interface CheckInRequest {
   notes?: string;
   latitude: number;
   longitude: number;
+  accuracy?: number;
 }
 
 /**

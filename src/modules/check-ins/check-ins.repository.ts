@@ -128,7 +128,18 @@ export class CheckInsRepository {
   ): Promise<{ logs: any[]; total: number }> {
     let query = `
       SELECT 
-        cil.*,
+        cil.id,
+        cil.user_id,
+        cil.job_id,
+        cil.check_in_time AT TIME ZONE 'UTC' as check_in_time,
+        cil.check_out_time AT TIME ZONE 'UTC' as check_out_time,
+        cil.duration_hours,
+        cil.hourly_rate,
+        cil.billable_amount,
+        cil.notes,
+        cil.deleted_at,
+        cil.created_at,
+        cil.updated_at,
         u.first_name,
         u.last_name,
         u.email,
@@ -233,7 +244,7 @@ export class CheckInsRepository {
     userId: string,
     limit: number = 50,
     offset: number = 0
-  ): Promise<{ logs: CheckInLog[]; total: number }> {
+  ): Promise<{ logs: any[]; total: number }> {
     // Get total count
     const countQuery = `
       SELECT COUNT(*) FROM check_in_logs
@@ -242,14 +253,19 @@ export class CheckInsRepository {
     const countResult = await db.query<{ count: string }>(countQuery, [userId]);
     const total = parseInt(countResult.rows[0].count, 10);
 
-    // Get logs
+    // Get logs with job name and job number
     const query = `
-      SELECT * FROM check_in_logs
-      WHERE user_id = $1 AND deleted_at IS NULL
-      ORDER BY check_in_time DESC
+      SELECT 
+        cl.*,
+        j.name as job_name,
+        j.job_number
+      FROM check_in_logs cl
+      LEFT JOIN jobs j ON cl.job_id = j.id
+      WHERE cl.user_id = $1 AND cl.deleted_at IS NULL
+      ORDER BY cl.check_in_time DESC
       LIMIT $2 OFFSET $3
     `;
-    const result = await db.query<CheckInLog>(query, [userId, limit, offset]);
+    const result = await db.query(query, [userId, limit, offset]);
     return { logs: result.rows, total };
   }
 
