@@ -124,6 +124,8 @@ export interface JobResponse {
     lastName: string;
     email: string;
   }>;
+  photos?: any[];
+  documents?: any[];
   createdAt: Date;
   updatedAt: Date;
 }
