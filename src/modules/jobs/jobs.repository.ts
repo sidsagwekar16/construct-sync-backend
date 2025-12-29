@@ -549,4 +549,45 @@ export class JobsRepository {
     const result = await db.query(query, [jobId, userId]);
     return result.rows.length > 0;
   }
+
+  /**
+   * Get photos for a job
+   */
+  async getJobPhotos(jobId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        id,
+        job_id,
+        photo_url as "photoUrl",
+        caption,
+        uploaded_by as "uploadedBy",
+        created_at as "createdAt"
+      FROM job_photos
+      WHERE job_id = $1 AND deleted_at IS NULL
+      ORDER BY created_at DESC
+    `;
+    const result = await db.query(query, [jobId]);
+    return result.rows;
+  }
+
+  /**
+   * Get documents for a job
+   */
+  async getJobDocuments(jobId: string): Promise<any[]> {
+    const query = `
+      SELECT 
+        id,
+        job_id,
+        document_name as "documentName",
+        document_url as "documentUrl",
+        document_type as "documentType",
+        uploaded_by as "uploadedBy",
+        created_at as "createdAt"
+      FROM job_documents
+      WHERE job_id = $1 AND deleted_at IS NULL
+      ORDER BY created_at DESC
+    `;
+    const result = await db.query(query, [jobId]);
+    return result.rows;
+  }
 }
