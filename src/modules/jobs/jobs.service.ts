@@ -389,6 +389,22 @@ export class JobsService {
     // Populate managers
     response.managers = await this.repository.getJobManagersWithDetails(job.id);
 
+    // Populate photos
+    try {
+      const photosResult = await this.repository.getJobPhotos(job.id);
+      response.photos = photosResult || [];
+    } catch (error) {
+      response.photos = [];
+    }
+
+    // Populate documents
+    try {
+      const documentsResult = await this.repository.getJobDocuments(job.id);
+      response.documents = documentsResult || [];
+    } catch (error) {
+      response.documents = [];
+    }
+
     return response;
   }
 
