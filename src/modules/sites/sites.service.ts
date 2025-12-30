@@ -98,7 +98,7 @@ export class SitesService {
       const budget = await this.budgetsRepository.createBudget(
         site.id,
         companyId,
-        0, // Start with 0 budget, user can update later
+        data.total_budget || 0, // Use provided budget or default to 0
         userId
       );
       

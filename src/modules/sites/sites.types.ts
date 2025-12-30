@@ -29,6 +29,7 @@ export interface CreateSiteRequest {
   longitude?: number;
   radius?: number;
   status?: SiteStatus;
+  total_budget?: number;
 }
 
 /**

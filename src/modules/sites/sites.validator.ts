@@ -33,6 +33,11 @@ export const createSiteSchema = z.object({
     .optional()
     .nullable(),
   status: z.nativeEnum(SiteStatus).optional().default(SiteStatus.PLANNING),
+  total_budget: z
+    .number()
+    .min(0, 'Budget cannot be negative')
+    .optional()
+    .default(0),
 });
 
 /**
