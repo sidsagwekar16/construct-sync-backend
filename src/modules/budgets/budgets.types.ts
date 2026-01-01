@@ -151,6 +151,7 @@ export interface UpdateCategoryRequest {
 
 export interface CreateExpenseRequest {
   category_id?: string;
+  job_id?: string;
   expense_name: string;
   description?: string;
   amount: number;

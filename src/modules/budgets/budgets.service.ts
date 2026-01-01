@@ -326,6 +326,7 @@ export class BudgetsService {
       expenseDate,
       userId,
       data.category_id,
+      data.job_id,
       data.description,
       data.vendor,
       data.receipt_url

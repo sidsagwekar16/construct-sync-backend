@@ -43,7 +43,7 @@ export class SitesService {
       offset
     );
 
-    const siteResponses = sites.map(this.mapSiteToResponse);
+    const siteResponses = await Promise.all(sites.map(site => this.mapSiteToResponse(site, companyId)));
 
     return {
       sites: siteResponses,
@@ -65,7 +65,7 @@ export class SitesService {
       throw new NotFoundError('Site not found');
     }
 
-    return this.mapSiteToResponse(site);
+    return this.mapSiteToResponse(site, companyId);
   }
 
   /**
@@ -95,10 +95,11 @@ export class SitesService {
 
     // Automatically create a budget for the site with default categories
     try {
+      const budgetAmount = data.budget !== undefined ? data.budget : 0;
       const budget = await this.budgetsRepository.createBudget(
         site.id,
         companyId,
-        data.total_budget || 0, // Use provided budget or default to 0
+        budgetAmount,
         userId
       );
       
@@ -108,13 +109,13 @@ export class SitesService {
       // Update budget totals
       await this.budgetsRepository.updateBudgetTotals(budget.id);
       
-      logger.info(`Budget created automatically for site: ${site.name} (${site.id})`);
+      logger.info(`Budget created for site: ${site.name} (${site.id}) with amount: ${budgetAmount}`);
     } catch (error) {
       logger.warn(`Failed to create budget for site ${site.id}: ${error}`);
       // Don't fail site creation if budget creation fails
     }
 
-    return this.mapSiteToResponse(site);
+    return this.mapSiteToResponse(site, companyId);
   }
 
   /**
@@ -145,9 +146,28 @@ export class SitesService {
       throw new NotFoundError('Site not found');
     }
 
+    // Update budget if provided
+    if (data.budget !== undefined) {
+      try {
+        let budget = await this.budgetsRepository.findBudgetBySiteId(siteId, companyId);
+        if (budget) {
+          await this.budgetsRepository.updateBudget(budget.id, companyId, data.budget);
+          logger.info(`Budget updated for site: ${updatedSite.name} (${siteId}) to ${data.budget}`);
+        } else {
+          // Create budget if it doesn't exist
+          budget = await this.budgetsRepository.createBudget(siteId, companyId, data.budget, site.company_id);
+          await this.budgetsRepository.createDefaultCategories(budget.id);
+          await this.budgetsRepository.updateBudgetTotals(budget.id);
+          logger.info(`Budget created for site: ${updatedSite.name} (${siteId}) with amount: ${data.budget}`);
+        }
+      } catch (error) {
+        logger.warn(`Failed to update budget for site ${siteId}: ${error}`);
+      }
+    }
+
     logger.info(`Site updated: ${updatedSite.name} (${updatedSite.id})`);
 
-    return this.mapSiteToResponse(updatedSite);
+    return this.mapSiteToResponse(updatedSite, companyId);
   }
 
   /**
@@ -196,7 +216,7 @@ export class SitesService {
     status: SiteStatus
   ): Promise<SiteResponse[]> {
     const sites = await this.repository.getSitesByStatus(companyId, status);
-    return sites.map(this.mapSiteToResponse);
+    return Promise.all(sites.map(site => this.mapSiteToResponse(site, companyId)));
   }
 
   /**
@@ -222,7 +242,16 @@ export class SitesService {
   /**
    * Helper: Map site entity to response
    */
-  private mapSiteToResponse(site: any): SiteResponse {
+  private async mapSiteToResponse(site: any, companyId: string): Promise<SiteResponse> {
+    // Fetch budget data for the site
+    let budgetAmount: number | null = null;
+    try {
+      const budget = await this.budgetsRepository.findBudgetBySiteId(site.id, companyId);
+      budgetAmount = budget ? Number(budget.total_budget) : null;
+    } catch (error) {
+      logger.warn(`Failed to fetch budget for site ${site.id}: ${error}`);
+    }
+
     return {
       id: site.id,
       companyId: site.company_id,
@@ -232,6 +261,7 @@ export class SitesService {
       longitude: site.longitude,
       radius: site.radius,
       status: site.status,
+      budget: budgetAmount,
       createdAt: site.created_at,
       updatedAt: site.updated_at,
     };

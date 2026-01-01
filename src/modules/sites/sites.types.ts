@@ -29,7 +29,7 @@ export interface CreateSiteRequest {
   longitude?: number;
   radius?: number;
   status?: SiteStatus;
-  total_budget?: number;
+  budget?: number;
 }
 
 /**
@@ -42,6 +42,7 @@ export interface UpdateSiteRequest {
   longitude?: number;
   radius?: number;
   status?: SiteStatus;
+  budget?: number;
 }
 
 /**
@@ -56,6 +57,7 @@ export interface SiteResponse {
   longitude: number | null;
   radius: number | null;
   status: SiteStatus | null;
+  budget: number | null;
   createdAt: Date;
   updatedAt: Date;
 }

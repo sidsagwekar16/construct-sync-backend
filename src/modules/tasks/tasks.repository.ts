@@ -346,4 +346,51 @@ export class TasksRepository {
     const result = await db.query<Task>(query, [companyId, userId]);
     return result.rows;
   }
+
+  /**
+   * Add status history entry
+   */
+  async addStatusHistory(
+    taskId: string,
+    oldStatus: string | null,
+    newStatus: string,
+    changedBy: string,
+    notes?: string
+  ): Promise<void> {
+    const query = `
+      INSERT INTO task_status_history (task_id, old_status, new_status, changed_by, notes)
+      VALUES ($1, $2, $3, $4, $5)
+    `;
+    await db.query(query, [taskId, oldStatus, newStatus, changedBy, notes]);
+  }
+
+  /**
+   * Get status history for a task
+   */
+  async getStatusHistory(taskId: string): Promise<Array<{
+    id: string;
+    oldStatus: string | null;
+    newStatus: string;
+    changedBy: string;
+    changedByName: string;
+    changedAt: Date;
+    notes: string | null;
+  }>> {
+    const query = `
+      SELECT 
+        tsh.id,
+        tsh.old_status as "oldStatus",
+        tsh.new_status as "newStatus",
+        tsh.changed_by as "changedBy",
+        CONCAT(u.first_name, ' ', u.last_name) as "changedByName",
+        tsh.changed_at as "changedAt",
+        tsh.notes
+      FROM task_status_history tsh
+      LEFT JOIN users u ON tsh.changed_by = u.id
+      WHERE tsh.task_id = $1
+      ORDER BY tsh.changed_at DESC
+    `;
+    const result = await db.query(query, [taskId]);
+    return result.rows;
+  }
 }

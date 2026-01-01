@@ -124,7 +124,8 @@ export class TasksService {
   async updateTask(
     taskId: string,
     companyId: string,
-    data: UpdateTaskRequest
+    data: UpdateTaskRequest,
+    userId?: string
   ): Promise<TaskResponse> {
     const task = await this.repository.findTaskById(taskId, companyId);
     if (!task) {
@@ -149,6 +150,16 @@ export class TasksService {
       if (!userExists) {
         throw new BadRequestError('Assigned user does not exist or does not belong to your company');
       }
+    }
+
+    // Track status change if status is being updated
+    if (data.status && data.status !== task.status && userId) {
+      await this.repository.addStatusHistory(
+        taskId,
+        task.status || null,
+        data.status,
+        userId
+      );
     }
 
     const updatedTask = await this.repository.updateTask(taskId, companyId, {
