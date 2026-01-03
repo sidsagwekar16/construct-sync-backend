@@ -82,9 +82,10 @@ export class TasksController {
     try {
       const taskId = req.params.id;
       const companyId = req.user!.companyId;
+      const userId = req.user!.id;
       const data: UpdateTaskRequest = req.body;
 
-      const task = await this.service.updateTask(taskId, companyId, data);
+      const task = await this.service.updateTask(taskId, companyId, data, userId);
       successResponse(res, task, 'Task updated successfully');
     } catch (error) {
       next(error);

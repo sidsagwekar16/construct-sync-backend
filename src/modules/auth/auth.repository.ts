@@ -143,4 +143,13 @@ export class AuthRepository {
       JSON.stringify({ errorMessage, errorStack, ...metadata }),
     ]);
   }
+
+  async updateProfilePicture(userId: string, profilePicture: string): Promise<void> {
+    const query = `
+      UPDATE users 
+      SET profile_picture = $1, updated_at = NOW()
+      WHERE id = $2 AND deleted_at IS NULL
+    `;
+    await db.query(query, [profilePicture, userId]);
+  }
 }

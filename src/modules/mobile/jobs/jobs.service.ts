@@ -186,6 +186,66 @@ export class MobileJobsService {
       }
 
       const row = result.rows[0];
+      
+      // Get photos for this job
+      const photosResult = await db.query(
+        `SELECT 
+          id,
+          job_id,
+          photo_url,
+          caption,
+          uploaded_by,
+          created_at
+         FROM job_photos
+         WHERE job_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [jobId]
+      );
+      
+      // Get documents for this job
+      const documentsResult = await db.query(
+        `SELECT 
+          id,
+          job_id,
+          document_name,
+          document_url,
+          document_type,
+          uploaded_by,
+          created_at
+         FROM job_documents
+         WHERE job_id = $1 AND deleted_at IS NULL
+         ORDER BY created_at DESC`,
+        [jobId]
+      );
+      
+      // Get workers assigned to this job
+      const workersResult = await db.query(
+        `SELECT 
+          u.id,
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.email,
+          u.role
+         FROM job_workers jw
+         INNER JOIN users u ON jw.user_id = u.id
+         WHERE jw.job_id = $1 AND u.deleted_at IS NULL`,
+        [jobId]
+      );
+      
+      // Get managers assigned to this job
+      const managersResult = await db.query(
+        `SELECT 
+          u.id,
+          u.first_name as "firstName",
+          u.last_name as "lastName",
+          u.email,
+          u.role
+         FROM job_managers jm
+         INNER JOIN users u ON jm.user_id = u.id
+         WHERE jm.job_id = $1 AND u.deleted_at IS NULL`,
+        [jobId]
+      );
+      
       return {
         id: row.id,
         name: row.name,
@@ -205,6 +265,25 @@ export class MobileJobsService {
         createdByName: row.created_by_name,
         createdAt: row.created_at,
         updatedAt: row.updated_at,
+        photos: photosResult.rows.map((p: any) => ({
+          id: p.id,
+          jobId: p.job_id,
+          photoUrl: p.photo_url,
+          caption: p.caption,
+          uploadedBy: p.uploaded_by,
+          createdAt: p.created_at,
+        })),
+        documents: documentsResult.rows.map((d: any) => ({
+          id: d.id,
+          jobId: d.job_id,
+          documentName: d.document_name,
+          documentUrl: d.document_url,
+          documentType: d.document_type,
+          uploadedBy: d.uploaded_by,
+          createdAt: d.created_at,
+        })),
+        workers: workersResult.rows,
+        managers: managersResult.rows,
       };
     } catch (error) {
       logger.error('Error getting job by ID:', error);

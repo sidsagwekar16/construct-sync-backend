@@ -178,7 +178,23 @@ export class AuthService {
       companyId: user.company_id,
       isActive: user.is_active,
       createdAt: user.created_at,
+      profilePicture: user.profile_picture || null,
     };
+  }
+
+  async updateProfilePicture(userId: string, profilePicture: string): Promise<UserResponse> {
+    // Update user profile picture
+    await this.repository.updateProfilePicture(userId, profilePicture);
+    
+    // Get updated user
+    const user = await this.repository.findUserById(userId);
+    if (!user) {
+      throw new NotFoundError('User not found');
+    }
+
+    logger.info(`Profile picture updated for user: ${user.email}`);
+    
+    return this.mapUserToResponse(user);
   }
 
   async refreshTokens(refreshToken: string): Promise<{ accessToken: string; refreshToken: string }> {

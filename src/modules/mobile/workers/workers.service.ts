@@ -28,9 +28,10 @@ export class MobileWorkersService {
       const result = await db.query(
         `SELECT 
           id,
-          first_name || ' ' || last_name as name,
+          COALESCE(first_name, '') as first_name,
+          COALESCE(last_name, '') as last_name,
+          TRIM(COALESCE(first_name, '') || ' ' || COALESCE(last_name, '')) as name,
           email,
-          phone,
           role
          FROM users
          WHERE ${whereClause}
@@ -40,9 +41,10 @@ export class MobileWorkersService {
 
       return result.rows.map(row => ({
         id: row.id,
-        name: row.name,
+        firstName: row.first_name,
+        lastName: row.last_name,
+        name: row.name || row.email, // Fallback to email if name is empty
         email: row.email,
-        phone: row.phone,
         role: row.role,
         status: 'available', // Default status
         hourlyRate: 0, // Not in current schema

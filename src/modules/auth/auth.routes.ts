@@ -208,6 +208,52 @@ router.post('/logout', authenticateToken, authController.logout);
 
 /**
  * @swagger
+ * /api/auth/profile-picture:
+ *   patch:
+ *     tags:
+ *       - Authentication
+ *     summary: Update profile picture
+ *     description: Update the authenticated user's profile picture
+ *     security:
+ *       - bearerAuth: []
+ *     requestBody:
+ *       required: true
+ *       content:
+ *         application/json:
+ *           schema:
+ *             type: object
+ *             properties:
+ *               profilePicture:
+ *                 type: string
+ *                 description: Base64 encoded image or image URL
+ *                 example: data:image/png;base64,iVBORw0KGgoAAAANSUhEUgAA...
+ *     responses:
+ *       200:
+ *         description: Profile picture updated successfully
+ *         content:
+ *           application/json:
+ *             schema:
+ *               type: object
+ *               properties:
+ *                 success:
+ *                   type: boolean
+ *                   example: true
+ *                 message:
+ *                   type: string
+ *                   example: Profile picture updated successfully
+ *                 data:
+ *                   $ref: '#/components/schemas/User'
+ *       401:
+ *         description: Unauthorized - Invalid or missing token
+ *         content:
+ *           application/json:
+ *             schema:
+ *               $ref: '#/components/schemas/Error'
+ */
+router.patch('/profile-picture', authenticateToken, authController.updateProfilePicture);
+
+/**
+ * @swagger
  * /api/auth/support/report-error:
  *   post:
  *     tags:

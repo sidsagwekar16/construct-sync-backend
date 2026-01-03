@@ -80,6 +80,7 @@ export const updateCategorySchema = z.object({
  */
 export const createExpenseSchema = z.object({
   category_id: z.string().uuid('Invalid category ID').optional(),
+  job_id: z.string().uuid('Invalid job ID').optional(),
   expense_name: z
     .string()
     .min(1, 'Expense name is required')

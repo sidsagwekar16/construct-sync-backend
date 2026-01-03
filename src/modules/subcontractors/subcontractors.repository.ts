@@ -313,13 +313,18 @@ export class SubcontractorsRepository {
     paymentTerms?: string,
     notes?: string
   ): Promise<SubcontractorContract> {
+    // Get subcontractor name for legacy column
+    const subQuery = `SELECT name FROM subcontractors WHERE id = $1 AND company_id = $2`;
+    const subResult = await db.query(subQuery, [subcontractorId, companyId]);
+    const subcontractorName = subResult.rows[0]?.name || 'Unknown';
+    
     const query = `
       INSERT INTO subcontractor_contracts (
         company_id, subcontractor_id, job_id, contract_number, title, 
         description, contract_value, start_date, end_date, status, 
-        payment_terms, notes
+        payment_terms, notes, subcontractor_name
       )
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10, $11, $12, $13)
       RETURNING *
     `;
     const result = await db.query<SubcontractorContract>(query, [
@@ -335,6 +340,7 @@ export class SubcontractorsRepository {
       status || 'draft',
       paymentTerms || null,
       notes || null,
+      subcontractorName,
     ]);
     return result.rows[0];
   }

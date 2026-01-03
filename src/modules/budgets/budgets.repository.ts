@@ -375,20 +375,22 @@ export class BudgetsRepository {
     expenseDate: Date,
     createdBy: string,
     categoryId?: string,
+    jobId?: string,
     description?: string,
     vendor?: string,
     receiptUrl?: string
   ): Promise<SiteBudgetExpense> {
     const query = `
       INSERT INTO site_budget_expenses 
-        (site_budget_id, category_id, expense_name, description, amount, 
+        (site_budget_id, category_id, job_id, expense_name, description, amount, 
          expense_date, vendor, receipt_url, created_by)
-      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9)
+      VALUES ($1, $2, $3, $4, $5, $6, $7, $8, $9, $10)
       RETURNING *
     `;
     const result = await db.query<SiteBudgetExpense>(query, [
       budgetId,
       categoryId || null,
+      jobId || null,
       expenseName,
       description || null,
       amount,
