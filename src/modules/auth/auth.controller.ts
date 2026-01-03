@@ -73,4 +73,15 @@ export class AuthController {
       next(error);
     }
   };
+
+  updateProfilePicture = async (req: Request, res: Response, next: NextFunction): Promise<void> => {
+    try {
+      const userId = req.user!.id;
+      const { profilePicture } = req.body as { profilePicture: string };
+      const user = await this.service.updateProfilePicture(userId, profilePicture);
+      successResponse(res, user, 'Profile picture updated successfully');
+    } catch (error) {
+      next(error);
+    }
+  };
 }

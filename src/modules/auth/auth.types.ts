@@ -11,6 +11,7 @@ export interface User {
   last_name: string | null;
   role: UserRole;
   is_active: boolean;
+  profile_picture: string | null;
   deleted_at: Date | null;
   created_at: Date;
   updated_at: Date;
@@ -63,6 +64,7 @@ export interface UserResponse {
   companyId: string;
   isActive: boolean;
   createdAt: Date;
+  profilePicture: string | null;
 }
 
 export interface ErrorReportRequest {
